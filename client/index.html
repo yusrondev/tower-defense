@@ -1,0 +1,1387 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Tower Defense Arena</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: radial-gradient(circle at center, #0a0a2a 0%, #000000 100%);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      font-family: 'Outfit', sans-serif;
+    }
+
+    #game-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: #000;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    /* Virtual Joystick Styles */
+    #joystick-zone {
+      position: absolute;
+      bottom: 5%;
+      left: 5%;
+      width: 120px;
+      height: 120px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      pointer-events: auto;
+      user-select: none;
+      -webkit-user-select: none;
+      z-index: 10;
+    }
+
+    #joystick-stick {
+      width: 50px;
+      height: 50px;
+      background: rgba(255, 255, 255, 0.5);
+      border-radius: 50%;
+      position: relative;
+      pointer-events: none;
+    }
+
+    /* Action Buttons Panel (MOBA Arc Layout) */
+    .action-buttons {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      width: 200px;
+      height: 200px;
+      pointer-events: none;
+      z-index: 200;
+      /* High priority */
+    }
+
+    .btn {
+      position: absolute;
+      border-radius: 50%;
+      background-color: rgba(255, 255, 255, 0.2);
+      backdrop-filter: blur(5px);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: white;
+      font-weight: bold;
+      font-family: inherit;
+      user-select: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      touch-action: none;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+      pointer-events: auto;
+      overflow: hidden;
+      -webkit-touch-callout: none;
+    }
+
+    .btn:active {
+      transform: scale(0.95);
+    }
+
+    .main-btn {
+      bottom: 0;
+      right: 0;
+      width: 90px;
+      height: 90px;
+      font-size: 14px;
+    }
+
+    #speed-btn {
+      bottom: 10px;
+      right: 110px;
+      width: 60px;
+      height: 60px;
+      font-size: 24px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      /* background-color: rgba(52, 152, 219, 0.5); */
+    }
+
+    #shield-btn {
+      bottom: 110px;
+      right: 10px;
+      width: 60px;
+      height: 60px;
+      font-size: 24px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      /* background-color: rgba(46, 204, 113, 0.5); */
+    }
+
+    #shoot-btn {
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      /* background-color: rgba(231, 76, 60, 0.5);  */
+    }
+
+    #ult-btn {
+      bottom: 90px;
+      right: 90px;
+      width: 65px;
+      height: 65px;
+      font-size: 24px;
+      /* background-color: rgba(155, 89, 182, 0.6); */
+      border: 2px solid rgba(255, 255, 255, 0.3);
+    }
+
+    /* Cooldown Overlay */
+    .cd-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.65);
+      display: none;
+      /* Flex pas aktif */
+      justify-content: center;
+      align-items: center;
+      font-size: 20px;
+      color: white;
+      z-index: 2;
+    }
+
+    /* Lobby Styles - Futuristic Glassmorphism */
+    #lobby-menu {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at center, #0d0d1f 0%, #05050a 100%);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+      color: white;
+      font-family: 'Outfit', sans-serif;
+      overflow: hidden;
+    }
+
+    #lobby-menu::before {
+      content: "";
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle at center, rgba(0, 242, 254, 0.05) 0%, transparent 50%);
+      animation: rotateBg 20s linear infinite;
+      z-index: -1;
+    }
+
+    @keyframes rotateBg {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .lobby-panel {
+      background: rgba(255, 255, 255, 0.03);
+      backdrop-filter: blur(25px);
+      -webkit-backdrop-filter: blur(25px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 32px;
+      padding: 40px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 30px rgba(0, 242, 254, 0.1);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 380px;
+      max-width: 95%;
+      animation: panelFadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes panelFadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    #lobby-menu h1 {
+      font-size: 48px;
+      font-weight: 900;
+      margin-bottom: 35px;
+      background: linear-gradient(to right, #00f2fe, #4facfe, #00f2fe);
+      background-size: 200% auto;
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: 8px;
+      text-align: center;
+      margin-top: 0;
+      animation: shine 3s linear infinite;
+      text-shadow: 0 0 30px rgba(0, 242, 254, 0.3);
+    }
+
+    @keyframes shine {
+      to { background-position: 200% center; }
+    }
+
+    #room-id-input,
+    #player-name-input,
+    #battle-duration {
+      font-size: 16px;
+      padding: 14px;
+      margin-bottom: 20px;
+      text-align: center;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(0, 0, 0, 0.4);
+      color: white;
+      width: 100%;
+      box-sizing: border-box;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      outline: none;
+    }
+
+    #room-id-input:focus,
+    #player-name-input:focus {
+      border-color: #00f2fe;
+      background: rgba(0, 0, 0, 0.6);
+      box-shadow: 0 0 15px rgba(0, 242, 254, 0.2);
+    }
+
+    .lobby-btn {
+      width: 100%;
+      font-size: 16px;
+      padding: 16px;
+      margin: 12px 0;
+      cursor: pointer;
+      background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+      border: none;
+      border-radius: 16px;
+      color: white;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      box-shadow: 0 8px 20px rgba(0, 242, 254, 0.3);
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .lobby-btn::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+      transition: 0.5s;
+    }
+
+    .lobby-btn:hover::after {
+      left: 100%;
+    }
+
+    .lobby-btn:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 25px rgba(0, 242, 254, 0.4);
+      filter: brightness(1.1);
+    }
+
+    .lobby-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0, 242, 254, 0.5);
+    }
+
+    .lobby-btn:active {
+      transform: translateY(0);
+    }
+
+    #lobby-players-list {
+      margin-top: 15px;
+      background: rgba(0, 0, 0, 0.2);
+      padding: 15px;
+      border-radius: 12px;
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    /* Role Selection Styles */
+    .role-selection {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 20px;
+      width: 100%;
+    }
+
+    .role-card {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      padding: 15px 5px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      cursor: pointer;
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      position: relative;
+    }
+
+    .role-card:hover {
+      background: rgba(255, 255, 255, 0.08);
+      transform: translateY(-5px);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .role-card.active {
+      background: rgba(0, 242, 254, 0.1);
+      border-color: #00f2fe;
+      box-shadow: 0 0 15px rgba(0, 242, 254, 0.2);
+    }
+
+    .role-icon {
+      width: 30px;
+      height: 30px;
+      margin-bottom: 6px;
+      object-fit: contain;
+    }
+
+    .role-name {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: rgba(255, 255, 255, 0.6);
+    }
+
+    .role-card.active .role-name {
+      color: #00f2fe;
+    }
+
+    .role-card[data-role="damager"].active {
+      border-color: #ff4757;
+      background: rgba(255, 71, 87, 0.1);
+      box-shadow: 0 0 15px rgba(255, 71, 87, 0.2);
+    }
+
+    .role-card[data-role="damager"].active .role-name {
+      color: #ff4757;
+    }
+
+    .role-card[data-role="tanker"].active {
+      border-color: #ffa502;
+      background: rgba(255, 165, 2, 0.1);
+      box-shadow: 0 0 15px rgba(255, 165, 2, 0.2);
+    }
+
+    .role-card[data-role="tanker"].active .role-name {
+      color: #ffa502;
+    }
+
+    .role-card[data-role="healer"].active {
+      border-color: #2ed573;
+      background: rgba(46, 213, 115, 0.1);
+      box-shadow: 0 0 15px rgba(46, 213, 115, 0.2);
+    }
+
+    .role-card[data-role="healer"].active .role-name {
+      color: #2ed573;
+    }
+
+    /* Role Details Accordion */
+    .role-details-container {
+      width: 100%;
+      margin-top: 5px;
+      margin-bottom: 20px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      overflow: hidden;
+      transition: all 0.4s ease;
+    }
+
+    .role-info-item {
+      display: none;
+      padding: 15px;
+      animation: slideIn 0.3s ease-out forwards;
+    }
+
+    .role-info-item.active {
+      display: block;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .role-info-header {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: #00f2fe;
+      margin-bottom: 10px;
+      font-weight: 800;
+      border-bottom: 1px solid rgba(0, 242, 254, 0.2);
+      padding-bottom: 5px;
+    }
+
+    .role-info-desc {
+      font-size: 13px;
+      line-height: 1.5;
+      color: rgba(255, 255, 255, 0.85);
+      margin-bottom: 12px;
+    }
+
+    .role-info-stats {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .stat-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12px;
+    }
+
+    .stat-label {
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      min-width: 80px;
+      text-align: center;
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+
+    /* Color adjustments for roles */
+    .role-info-item[data-role="damager"] .role-info-header {
+      color: #ff4757;
+      border-color: rgba(255, 71, 87, 0.3);
+    }
+
+    .role-info-item[data-role="damager"] .stat-label {
+      color: #ff4757;
+      background: rgba(255, 71, 87, 0.1);
+    }
+
+    .role-info-item[data-role="tanker"] .role-info-header {
+      color: #ffa502;
+      border-color: rgba(255, 165, 2, 0.3);
+    }
+
+    .role-info-item[data-role="tanker"] .stat-label {
+      color: #ffa502;
+      background: rgba(255, 165, 2, 0.1);
+    }
+
+    .role-info-item[data-role="healer"] .role-info-header {
+      color: #2ed573;
+      border-color: rgba(46, 213, 115, 0.3);
+    }
+
+    .role-info-item[data-role="healer"] .stat-label {
+      color: #2ed573;
+      background: rgba(46, 213, 115, 0.1);
+    }
+
+    .player-entry {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      padding: 8px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 6px;
+    }
+
+    .host-tag {
+      color: #f1c40f;
+      font-size: 12px;
+      margin-left: 5px;
+    }
+
+    #game-over-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 20;
+      color: white;
+      font-family: 'Outfit', sans-serif;
+    }
+
+    #game-over-overlay h2 {
+      font-size: 50px;
+      margin-bottom: 10px;
+    }
+
+    #winner-text {
+      font-size: 30px;
+      color: yellow;
+      margin-bottom: 30px;
+    }
+
+    .lobby-btn {
+      font-size: 18px;
+      padding: 12px 24px;
+      margin: 10px;
+      cursor: pointer;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      font-weight: bold;
+    }
+
+    .lobby-btn:hover {
+      background: #45a049;
+    }
+
+    .lobby-btn:disabled {
+      background: #555;
+      cursor: not-allowed;
+    }
+
+    /* Scoreboard HUD (FFA style) */
+    #score-hud {
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      /* Pojok Kiri Atas */
+      background: rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(6px);
+      padding: 6px 15px;
+      border-radius: 8px;
+      color: white;
+      font-family: 'Outfit', sans-serif;
+      display: flex;
+      flex-direction: row;
+      /* Paksa Horizontal */
+      align-items: center;
+      gap: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      z-index: 5;
+      pointer-events: none;
+    }
+
+    #scoreboard-list {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: nowrap;
+      /* Jangan pernah membungkus (column) */
+    }
+
+    .score-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 2px 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 4px;
+      border: 1px solid rgba(255, 255, 255, 0.03);
+    }
+
+    .score-name {
+      font-weight: 500;
+      font-size: 12px;
+      opacity: 0.8;
+      max-width: 60px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .score-val {
+      color: #f1c40f;
+      font-weight: 800;
+      font-size: 14px;
+      min-width: 15px;
+      text-align: center;
+    }
+
+    #battle-timer {
+      color: #e74c3c;
+      font-size: 16px;
+      font-weight: 900;
+      padding: 0 8px;
+      border-left: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    #respawn-msg {
+      position: absolute;
+      top: 45%;
+      width: 100%;
+      text-align: center;
+      color: #ff4757;
+      font-size: 28px;
+      font-weight: bold;
+      z-index: 25;
+      /* PALING ATAS */
+      text-shadow: 0 0 15px rgba(255, 71, 87, 0.8), 0 0 5px #000;
+      display: none;
+      transform: translateY(-50%);
+      font-family: 'Outfit', sans-serif;
+    }
+
+    /* Killer Info for Victim */
+    #killer-info {
+      position: absolute;
+      top: 55%;
+      width: 100%;
+      text-align: center;
+      z-index: 25;
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      display: none;
+      font-family: 'Outfit', sans-serif;
+      pointer-events: none;
+    }
+
+    #killer-name-display {
+      color: #00f2fe;
+      font-weight: 900;
+      display: block;
+      font-size: 24px;
+      margin-top: 5px;
+      text-shadow: 0 0 10px rgba(0, 242, 254, 0.5);
+    }
+
+    /* Kill Feed Notification */
+    #kill-feed-container {
+      position: fixed;
+      top: 25px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 300;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      pointer-events: none;
+    }
+
+    .kill-item {
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border-left: 4px solid #00f2fe;
+      padding: 8px 20px;
+      border-radius: 4px;
+      margin-bottom: 8px;
+      color: white;
+      font-weight: bold;
+      animation: killSlideIn 0.3s ease-out, killFadeOut 0.5s ease-in 3.5s forwards;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+      font-family: 'Outfit', sans-serif;
+    }
+
+    @keyframes killSlideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes killFadeOut {
+      to {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+    }
+
+    /* Teammate Down Banner */
+    #teammate-down-banner {
+      position: fixed;
+      top: 70px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 299;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      pointer-events: none;
+    }
+
+    .teammate-down-item {
+      background: rgba(255, 71, 87, 0.15);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 71, 87, 0.4);
+      padding: 8px 24px;
+      border-radius: 8px;
+      color: white;
+      font-weight: bold;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      font-family: 'Outfit', sans-serif;
+      box-shadow: 0 4px 20px rgba(255, 71, 87, 0.3);
+      animation: pulseDown 1.5s ease-in-out infinite;
+      white-space: nowrap;
+    }
+
+    .teammate-down-item .skull {
+      margin-right: 6px;
+    }
+
+    .teammate-down-item .cd {
+      color: #ff4757;
+      font-size: 14px;
+      margin-left: 4px;
+    }
+
+    @keyframes pulseDown {
+
+      0%,
+      100% {
+        opacity: 0.85;
+      }
+
+      50% {
+        opacity: 1;
+        border-color: rgba(255, 71, 87, 0.8);
+      }
+    }
+
+    /* Latency Meter */
+    #ping-display {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      z-index: 100;
+      font-family: 'Outfit', sans-serif;
+      font-size: 7px;
+      color: rgba(255, 255, 255, 0.3);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      background: rgba(0, 0, 0, 0.2);
+      backdrop-filter: blur(5px);
+      -webkit-backdrop-filter: blur(5px);
+      padding: 5px 6px;
+      border-radius: 40px;
+      border: 1px solid rgba(0, 242, 254, 0.1);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      pointer-events: none;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+    }
+
+    #ping-value {
+      color: #00f2fe;
+      font-weight: 900;
+      text-shadow: 0 0 8px rgba(0, 242, 254, 0.5);
+    }
+
+    .ping-dot {
+      width: 4px;
+      height: 4px;
+      background: #00f2fe;
+      border-radius: 50%;
+      box-shadow: 0 0 5px #00f2fe;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% {
+        transform: scale(1);
+        opacity: 0.5;
+      }
+
+      50% {
+        transform: scale(1.5);
+        opacity: 1;
+      }
+
+      100% {
+        transform: scale(1);
+        opacity: 0.5;
+      }
+    }
+
+    #stat-hud {
+      position: absolute;
+      top: 52px;
+      left: 15px;
+      background: rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(6px);
+      padding: 4px 12px;
+      border-radius: 6px;
+      color: #f1c40f;
+      font-family: 'Outfit', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      border: 1px solid rgba(241, 196, 15, 0.2);
+      z-index: 5;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .atk-pop {
+      transform: scale(1.2);
+      background: rgba(241, 196, 15, 0.3);
+      border-color: #f1c40f;
+      box-shadow: 0 0 20px rgba(241, 196, 15, 0.4);
+    }
+
+    /* Action Buttons (Icons) */
+    .skill-icon {
+      width: 35px;
+      height: 35px;
+      object-fit: contain;
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+    }
+
+    /* Hit Vignette Effect */
+    #hit-vignette {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 15;
+      /* Di atas HUD tapi di bawah overlay game over */
+      background: radial-gradient(circle, rgba(231, 76, 60, 0) 50%, rgba(231, 76, 60, 0.5) 100%);
+      opacity: 0;
+      transition: opacity 0.1s ease-out;
+    }
+
+    .hit-flash {
+      opacity: 1 !important;
+    }
+
+    .low-hp-pulse {
+      animation: lowHpPulse 1s ease-in-out infinite;
+    }
+
+    @keyframes lowHpPulse {
+      0%, 100% { opacity: 0; }
+      50% { opacity: 0.85; }
+    }
+
+    /* Death/Respawn Darkness Effect */
+    #death-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 12;
+      /* Di atas canvas/joystick tapi di bawah HUD tembus pandang */
+      background: rgba(0, 0, 0, 0.7);
+      opacity: 0;
+      transition: opacity 0.8s ease-in-out;
+    }
+
+    #wave-hud {
+      position: absolute;
+      top: 130px;
+      /* Below minimap */
+      right: 15px;
+      background: rgba(0, 0, 0, 0.4);
+      backdrop-filter: blur(8px);
+      padding: 4px 10px;
+      border-radius: 8px;
+      color: white;
+      font-family: 'Outfit', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      border: 1px solid rgba(0, 242, 254, 0.2);
+      z-index: 5;
+      pointer-events: none;
+      min-width: 80px;
+    }
+
+    .wave-label {
+      font-size: 8px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      opacity: 0.6;
+      margin-bottom: 0px;
+    }
+
+    #wave-timer-val {
+      font-size: 16px;
+      font-weight: 900;
+      color: #00f2fe;
+      text-shadow: 0 0 8px rgba(0, 242, 254, 0.4);
+    }
+
+    /* Orientation Lock Overlay (Mobile) */
+    #rotate-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at center, #1a1a2e 0%, #05050a 100%);
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 10000;
+      color: white;
+      font-family: 'Outfit', sans-serif;
+      text-align: center;
+      padding: 20px;
+    }
+
+    @media screen and (orientation: portrait) {
+
+      body.ios-game-active #rotate-overlay,
+      #game-container.ios-fix~#rotate-overlay {
+        display: flex;
+      }
+
+      /* Optional: always show on mobile portrait if game is active or we want to force landscape */
+      #rotate-overlay {
+        display: flex;
+      }
+    }
+
+    .rotate-icon {
+      width: 80px;
+      height: 80px;
+      margin-bottom: 20px;
+      border: 3px solid #00f2fe;
+      border-radius: 12px;
+      position: relative;
+      animation: rotateHint 2s infinite ease-in-out;
+    }
+
+    .rotate-icon::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 40px;
+      height: 10px;
+      background: #00f2fe;
+      transform: translate(-50%, -50%);
+      border-radius: 2px;
+    }
+    /* Toast Notifications */
+    #toast-container {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: none;
+    }
+
+    .toast {
+      pointer-events: auto;
+      width: 300px;
+      padding: 16px;
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(15px);
+      -webkit-backdrop-filter: blur(15px);
+      border-radius: 12px;
+      border-left: 5px solid #00f2fe;
+      color: white;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-family: 'Outfit', sans-serif;
+      transform: translateX(120%);
+      transition: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .toast.active {
+      transform: translateX(0);
+    }
+
+    .toast-icon {
+      font-size: 20px;
+      min-width: 30px;
+      height: 30px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 50%;
+    }
+
+    .toast-content {
+      flex: 1;
+    }
+
+    .toast-title {
+      font-weight: 800;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 2px;
+    }
+
+    .toast-msg {
+      font-size: 13px;
+      opacity: 0.8;
+    }
+
+    .toast.success { border-left-color: #2ed573; }
+    .toast.success .toast-title { color: #2ed573; }
+    .toast.error { border-left-color: #ff4757; }
+    .toast.error .toast-title { color: #ff4757; }
+    .toast.warning { border-left-color: #ffa502; }
+    .toast.warning .toast-title { color: #ffa502; }
+
+    .toast-progress {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      height: 3px;
+      background: rgba(255, 255, 255, 0.2);
+      width: 100%;
+    }
+
+    .toast-progress-bar {
+      height: 100%;
+      background: inherit;
+      width: 100%;
+      transform-origin: left;
+    }
+
+    @keyframes progress {
+      from { transform: scaleX(1); }
+      to { transform: scaleX(0); }
+    }
+    /* Spell Guide UI */
+    #lobby-spell-guide {
+      margin-top: 20px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 16px;
+      padding: 15px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      animation: slideInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    .guide-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      opacity: 0.5;
+      margin-bottom: 12px;
+      text-align: center;
+      font-weight: 800;
+    }
+
+    .spell-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .spell-guide-item {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      transition: all 0.3s;
+      padding: 5px 0;
+    }
+
+    .spell-guide-item:hover {
+      transform: translateX(5px);
+    }
+
+    .spell-orb {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 16px;
+      color: white;
+      text-shadow: 0 0 10px rgba(255,255,255,0.5);
+      font-weight: 900;
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    .spell-orb.red { background: #e74c3c; box-shadow: 0 0 15px rgba(231, 76, 60, 0.6); }
+    .spell-orb.yellow { background: #f1c40f; box-shadow: 0 0 15px rgba(241, 196, 15, 0.6); }
+    .spell-orb.green { background: #2ecc71; box-shadow: 0 0 15px rgba(46, 204, 115, 0.6); }
+
+    .spell-details {
+      flex: 1;
+    }
+
+    .spell-name {
+      font-size: 12px;
+      font-weight: 800;
+      margin-bottom: 2px;
+    }
+
+    .spell-effect {
+      font-size: 10px;
+      opacity: 0.7;
+    }
+
+    .spell-role-recommend {
+      background: rgba(255, 255, 255, 0.08);
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: 700;
+      white-space: nowrap;
+      margin-left: 10px;
+    }
+
+    .rec-damager { color: #ff4757; border: 1px solid rgba(255, 71, 87, 0.2); }
+    .rec-all { color: #00f2fe; border: 1px solid rgba(0, 242, 254, 0.2); }
+
+    @keyframes slideInUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="toast-container"></div>
+  <div id="lobby-menu">
+    <div class="lobby-panel">
+      <h1>TOWER DEFENSE</h1>
+
+      <div id="lobby-setup" style="width: 100%;">
+        <input type="text" id="player-name-input" placeholder="Nama Kamu..." maxlength="12" />
+
+        <input type="text" id="room-id-input" placeholder="ID Room..." />
+
+        <div class="role-selection mt-1">
+          <div class="role-card active" data-role="damager">
+            <img src="src/skills/ultimatum-damager.png" class="role-icon" draggable="false" />
+            <span class="role-name">Damager</span>
+          </div>
+          <div class="role-card" data-role="tanker">
+            <img src="src/skills/ultimatum-tanker.png" class="role-icon" draggable="false" />
+            <span class="role-name">Tanker</span>
+          </div>
+          <div class="role-card" data-role="healer">
+            <img src="src/skills/ultimatum-healer.png" class="role-icon" draggable="false" />
+            <span class="role-name">Healer</span>
+          </div>
+        </div>
+
+        <!-- Role Details Accordion -->
+        <div class="role-details-container">
+          <div class="role-info-item active" data-role="damager">
+            <div class="role-info-header">FOKUS: SERANGAN & SKOR</div>
+            <div class="role-info-desc">Spesialis penghancur minion dengan damage projectile yang bisa terus meningkat.
+            </div>
+            <div class="role-info-stats">
+              <div class="stat-row"><span class="stat-label">Ultimatum</span> <span>Laser Penghancur (1s)</span></div>
+              <div class="stat-row"><span class="stat-label">Passive</span> <span>Scaling Damage via Red Spell</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="role-info-item" data-role="tanker">
+            <div class="role-info-header">FOKUS: PERTAHANAN TIM</div>
+            <div class="role-info-desc">Garda terdepan yang menjaga rekan tim dari gempuran minion menggunakan barrier
+              pelindung.</div>
+            <div class="role-info-stats">
+              <div class="stat-row"><span class="stat-label">Ultimatum</span> <span>Guard Barrier (Invulnerable
+                  3s)</span>
+              </div>
+              <div class="stat-row"><span class="stat-label">Passive</span> <span>Solid Structure (Immune inside
+                  barrier)</span></div>
+            </div>
+          </div>
+
+          <div class="role-info-item" data-role="healer">
+            <div class="role-info-header">FOKUS: PEMULIHAN & SUPPORT</div>
+            <div class="role-info-desc">Menjamin kelangsungan hidup tim dengan memulihkan HP rekan di tengah
+              pertempuran.
+            </div>
+            <div class="role-info-stats">
+              <div class="stat-row"><span class="stat-label">Ultimatum</span> <span>Healing Field (Rapid HP Regen
+                  3s)</span></div>
+              <div class="stat-row"><span class="stat-label">Passive</span> <span>Area Sustain (High HP recovery)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="host-settings" style="display:none; text-align: center; width: 100%;">
+        <label style="display:block; margin-bottom:10px; font-size:14px; opacity:0.8; text-align: center;">DURASI
+          PERTANDINGAN</label>
+        <select id="battle-duration">
+          <option value="60">1 Menit</option>
+          <option value="120">2 Menit</option>
+          <option value="180">3 Menit</option>
+          <option value="300">5 Menit</option>
+        </select>
+      </div>
+
+      <button id="join-room-btn" class="lobby-btn">Buat / Gabung Room</button>
+      <button id="start-game-btn" class="lobby-btn" style="display:none;">Mulai Pertandingan</button>
+
+      <div id="lobby-players-list" style="display:none;">
+        <strong style="font-size: 13px; opacity: 0.6; text-transform: uppercase; letter-spacing: 1px;">Pemain
+          Menunggu</strong>
+        <div id="players-container" style="margin-top:12px;"></div>
+
+        <!-- Spell Guide Intel -->
+        <div id="lobby-spell-guide">
+          <div class="guide-title">SPELLS GUIDE</div>
+          <div class="spell-list">
+            <div class="spell-guide-item">
+              <div class="spell-orb red">★</div>
+              <div class="spell-details">
+                <div class="spell-name" style="color:#e74c3c">POWER SPELL</div>
+                <div class="spell-effect">Meningkatkan Bullet Damage permanen (stacking).</div>
+              </div>
+              <div class="spell-role-recommend rec-damager">Damager Only</div>
+            </div>
+            
+            <div class="spell-guide-item">
+              <div class="spell-orb yellow">⚡</div>
+              <div class="spell-details">
+                <div class="spell-name" style="color:#f1c40f">ENERGY SPELL</div>
+                <div class="spell-effect">Memulihkan Energy untuk tembakan & skill ultimatum.</div>
+              </div>
+              <div class="spell-role-recommend rec-all">Semua Role</div>
+            </div>
+
+            <div class="spell-guide-item">
+              <div class="spell-orb green">+</div>
+              <div class="spell-details">
+                <div class="spell-name" style="color:#2ecc71">HEALTH SPELL</div>
+                <div class="spell-effect">Memulihkan HP secara instan saat pertempuran.</div>
+              </div>
+              <div class="spell-role-recommend rec-all">Semua Role</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="lobby-status" style="margin-top: 15px; color: #00f2fe; font-size: 14px; font-weight: bold;"></div>
+    </div>
+  </div>
+
+  <div id="game-over-overlay">
+    <h2 id="end-title">DEFENSE COMPLETED</h2>
+    <div id="winner-text">YOU SURVIVED!</div>
+    <button onclick="location.reload()" class="lobby-btn">Kembali ke Lobby</button>
+  </div>
+
+  <div id="game-container" style="display: none;">
+    <div id="score-hud">
+      <div id="scoreboard-list">
+        <!-- Dinamis via JS -->
+      </div>
+      <div id="battle-timer">00:00</div>
+    </div>
+
+    <div id="respawn-msg">RESPAWN DALAM <span id="respawn-timer">5</span>s</div>
+    <div id="killer-info">DIKALAHKAN OLEH <span id="killer-name-display">PEMAIN</span></div>
+    <div id="kill-feed-container"></div>
+    <div id="teammate-down-banner"></div>
+    <div id="ping-display">
+      <div class="ping-dot"></div> LATENCY: <span id="ping-value">0</span>ms
+    </div>
+
+    <div id="stat-hud">
+      <span style="opacity:0.75">⚡ ATK:</span>
+      <span id="atk-value">1.0</span><span style="font-size: 10px; margin-left: 2px;">x</span>
+    </div>
+
+    <div id="wave-hud">
+      <div class="wave-label">Next Wave In</div>
+      <div id="wave-timer-val">00:00</div>
+    </div>
+
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+    <div id="joystick-zone">
+      <div id="joystick-stick"></div>
+    </div>
+
+    <div class="action-buttons">
+      <div id="shield-btn" class="btn"><img src="src/skills/shield.png" class="skill-icon" draggable="false">
+        <div class="cd-overlay" id="cd-shield"></div>
+      </div>
+      <div id="ult-btn" class="btn"><img src="src/skills/ultimatum.png" class="skill-icon" draggable="false">
+        <div class="cd-overlay" id="cd-ult"></div>
+      </div>
+      <div id="speed-btn" class="btn"><img src="src/skills/speed.png" class="skill-icon" draggable="false">
+        <div class="cd-overlay" id="cd-speed"></div>
+      </div>
+      <div id="shoot-btn" class="btn main-btn"><img src="src/skills/bullet.png" class="skill-icon" draggable="false">
+        <div class="cd-overlay" id="cd-shoot"></div>
+      </div>
+    </div>
+    <div id="hit-vignette"></div>
+    <div id="death-overlay"></div>
+  </div>
+
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script type="module" src="./src/main.js"></script>
+</body>
+
+</html>
