@@ -374,7 +374,7 @@ function update() {
     // update remote players
     Object.values(remotePlayers).forEach(p => {
         if (p.lastInput) {
-            p.update(p.lastInput, allPlayers, towers); // simulasi gerakan searah (dead reckoning)
+            p.update(p.lastInput, allPlayers, towers, minions); // simulasi gerakan searah (dead reckoning)
         }
         if (p.targetX !== undefined) {
             // Koreksi posisi dengan LERP (Linear Interpolation)
