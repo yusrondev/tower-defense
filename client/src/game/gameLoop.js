@@ -429,6 +429,9 @@ function update() {
             score: player1.score,
             bulletPower: player1.bulletPower,
             role: player1.role,
+            isShooting: player1.isShooting,
+            lastDirX: player1.lastDir.x,
+            lastDirY: player1.lastDir.y,
             ultActive: player1.ultActive,
             shieldTimer: player1.shieldTimer,
             battleTimeRemaining: battleTimeRemaining,
@@ -1349,6 +1352,10 @@ export function handleRemoteInput(id, input, state) {
         if (state.hp !== undefined) player.hp = state.hp;
         if (state.energy !== undefined) player.energy = state.energy;
         if (state.isAlive !== undefined) player.isAlive = state.isAlive;
+        if (state.isShooting !== undefined) player.isShooting = state.isShooting;
+        if (state.lastDirX !== undefined && state.lastDirY !== undefined) {
+            player.lastDir = { x: state.lastDirX, y: state.lastDirY };
+        }
         if (state.respawnTimer !== undefined) player.respawnTimer = state.respawnTimer;
         if (state.team !== undefined) player.team = state.team;
         if (state.score !== undefined) player.score = state.score;
