@@ -148,6 +148,13 @@ onLobbyUpdate(({ players, duration, selectedMapId }) => {
   container.innerHTML = "";
   lobbyPlayersList.style.display = "block";
   durationSelect.value = duration;
+  
+  // Refresh list jika dropdown kosong atau mapId baru tidak ada di list
+  const currentOptions = Array.from(mapSelect.options).map(opt => opt.value);
+  if (selectedMapId && !currentOptions.includes(selectedMapId)) {
+    await refreshMapList();
+  }
+  
   if (selectedMapId) mapSelect.value = selectedMapId;
 
   // Cek apakah saya Host
@@ -231,22 +238,46 @@ onReturnToLobby(() => {
   showToast("Berhasil kembali ke Lobby!", "success");
 });
 
-// 🔥 pastikan DOM sudah siap
-window.onload = async () => {
-  // Fetch available maps
+async function refreshMapList() {
+  const mapSelect = document.getElementById("map-select");
+  if (!mapSelect) return;
+
   try {
     const res = await fetch("/api/maps");
-    if (res.ok) {
-      const maps = await res.json();
-      const mapSelect = document.getElementById("map-select");
-      maps.forEach(mapFile => {
-        const option = document.createElement("option");
-        option.value = mapFile;
-        option.innerText = mapFile;
-        mapSelect.appendChild(option);
-      });
+    if (!res.ok) return;
+    
+    const maps = await res.json();
+    
+    // Simpan nilai lama agar tidak ter-reset jika tidak perlu
+    const oldValue = mapSelect.value;
+    
+    // Bersihkan kecuali Default (opsional, tapi lebih baik bersihkan semua dan tambah ulang)
+    mapSelect.innerHTML = '<option value="default">Default Map</option>';
+    
+    maps.forEach(mapFile => {
+      // Hilangkan .json, ganti simbol jadi spasi, dan UPPERCASE
+      const displayName = mapFile
+        .replace(".json", "")
+        .replace(/[-_]/g, " ")
+        .toUpperCase();
+
+      const option = document.createElement("option");
+      option.value = mapFile;
+      option.innerText = displayName;
+      mapSelect.appendChild(option);
+    });
+
+    // Kembalikan nilai lama jika masih ada di list baru
+    const newOptions = Array.from(mapSelect.options).map(opt => opt.value);
+    if (newOptions.includes(oldValue)) {
+      mapSelect.value = oldValue;
     }
   } catch (e) {
-    console.error("Failed to load maps:", e);
+    console.error("Failed to refresh maps:", e);
   }
+}
+
+// 🔥 pastikan DOM sudah siap
+window.onload = async () => {
+  await refreshMapList();
 };
