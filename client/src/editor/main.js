@@ -270,16 +270,33 @@ function setTool(tool, btn) {
     document.querySelectorAll("#header button").forEach(b => b.classList.remove("active-tool"));
     if (btn) btn.classList.add("active-tool");
     
+    const isShape = selectedItem && selectedItem.type === "shape";
+    const isWall = selectedItem && !selectedItem.label && selectedItem.type !== "waypoint" && selectedItem.type !== "spawn" && selectedItem.type !== "shape";
+
     // UI visibility updates
     propPane.style.display = (tool === "tower" || tool === "waypoint" || tool === "spawn" || (tool === "select" && selectedItem)) ? "block" : "none";
-    towerOptions.style.display = tool === "tower" ? "block" : "none";
+    towerOptions.style.display = (tool === "tower" || (tool === "select" && selectedItem && selectedItem.label)) ? "block" : "none";
     document.getElementById("waypoint-options").style.display = (tool === "waypoint" || (tool === "select" && selectedItem && selectedItem.type === "waypoint")) ? "block" : "none";
-    document.getElementById("wall-options").style.display = (tool === "wall" || (tool === "select" && selectedItem && !selectedItem.label && selectedItem.type !== "waypoint" && selectedItem.type !== "spawn")) ? "block" : "none";
+    document.getElementById("wall-options").style.display = (tool === "wall" || (tool === "select" && isWall)) ? "block" : "none";
+    document.getElementById("shape-options").style.display = (tool === "shape" || (tool === "select" && isShape)) ? "block" : "none";
     
-    // Sync input if select tool and wall selected
-    if (tool === "select" && selectedItem && !selectedItem.label && selectedItem.type !== "waypoint" && selectedItem.type !== "spawn") {
-        wallAngleInput.value = selectedItem.angle || 0;
-        updateWallTextureUI();
+    // Sync inputs if select tool
+    if (tool === "select" && selectedItem) {
+        if (isWall) {
+            wallAngleInput.value = selectedItem.angle || 0;
+            updateWallTextureUI();
+        } else if (isShape) {
+            shapeCollision.checked = selectedItem.isCollision !== false;
+            shapeColor.value = selectedItem.color || "#444444";
+            shapeWidthInput.value = Math.round(selectedItem.w || 100);
+            shapeHeightInput.value = Math.round(selectedItem.h || 100);
+            updateShapeTextureUI();
+        } else if (selectedItem.label) {
+            // Tower
+            document.getElementById("tower-hp").value = selectedItem.maxHp;
+            document.getElementById("tower-size").value = selectedItem.size;
+            updateTowerTextureUI();
+        }
     }
     
     // Clear selection when changing tool unless it's select
@@ -430,6 +447,8 @@ btnRemoveTowerTexture.addEventListener("click", () => {
 // --- Shape Property Handlers ---
 const shapeCollision = document.getElementById("shape-collision");
 const shapeColor = document.getElementById("shape-color");
+const shapeWidthInput = document.getElementById("shape-width");
+const shapeHeightInput = document.getElementById("shape-height");
 const shapeTextureInput = document.getElementById("shape-texture-input");
 const shapeTexturePreview = document.getElementById("shape-texture-preview");
 const btnRemoveShapeTexture = document.getElementById("btn-remove-shape-texture");
@@ -472,6 +491,22 @@ shapeCollision.addEventListener("change", (e) => {
 shapeColor.addEventListener("input", (e) => {
     if (selectedItem && selectedItem.type === "shape") {
         selectedItem.color = e.target.value;
+        draw();
+    }
+});
+
+shapeWidthInput.addEventListener("input", (e) => {
+    const val = parseInt(e.target.value) || 20;
+    if (selectedItem && selectedItem.type === "shape") {
+        selectedItem.w = val;
+        draw();
+    }
+});
+
+shapeHeightInput.addEventListener("input", (e) => {
+    const val = parseInt(e.target.value) || 20;
+    if (selectedItem && selectedItem.type === "shape") {
+        selectedItem.h = val;
         draw();
     }
 });
@@ -815,47 +850,8 @@ canvas.addEventListener("mousedown", (e) => {
             dragY = rawPos.y - hit.y;
             btnDuplicate.style.display = (hit.label || hit.type === "waypoint" || hit.type === "spawn" || hit.type === "border") ? "none" : "block";
             
-            // Show properties
-            propPane.style.display = "block";
-            if (hit.label) {
-                // Tower
-                towerOptions.style.display = "block";
-                document.getElementById("waypoint-options").style.display = "none";
-                document.getElementById("wall-options").style.display = "none";
-                updateTowerInfo();
-                document.getElementById("tower-hp").value = hit.maxHp;
-                document.getElementById("tower-size").value = hit.size;
-                updateTowerTextureUI();
-            } else if (hit.type === "waypoint") {
-                // Waypoint
-                towerOptions.style.display = "none";
-                document.getElementById("waypoint-options").style.display = "block";
-                document.getElementById("wall-options").style.display = "none";
-                updateWaypointInfo();
-            } else if (hit.type === "spawn") {
-                // Spawn Point
-                towerOptions.style.display = "none";
-                document.getElementById("waypoint-options").style.display = "none";
-                document.getElementById("wall-options").style.display = "none";
-            } else {
-                // Wall, Border, or Shape
-                towerOptions.style.display = "none";
-                document.getElementById("waypoint-options").style.display = "none";
-                
-                if (hit.type === "shape") {
-                    document.getElementById("wall-options").style.display = "none";
-                    document.getElementById("shape-options").style.display = "block";
-                    shapeCollision.checked = hit.isCollision !== false;
-                    shapeColor.value = hit.color || "#444444";
-                    updateShapeTextureUI();
-                } else {
-                    document.getElementById("wall-options").style.display = "block";
-                    document.getElementById("shape-options").style.display = "none";
-                    wallAngleInput.value = hit.angle || 0;
-                    wallAngleInput.disabled = (hit.type === "border");
-                    updateWallTextureUI();
-                }
-            }
+            // Show properties via setTool
+            setTool("select", btnSelect);
         } else {
             btnDuplicate.style.display = "none";
             propPane.style.display = "none";
@@ -1208,15 +1204,33 @@ function draw() {
     });
 }
 
+function removeSelectedItem() {
+    if (!selectedItem) return;
+    if (selectedItem.type === "border") return;
+
+    let idx = obstacles.indexOf(selectedItem);
+    if (idx !== -1) obstacles.splice(idx, 1);
+
+    idx = towers.indexOf(selectedItem);
+    if (idx !== -1) towers.splice(idx, 1);
+
+    idx = waypoints.indexOf(selectedItem);
+    if (idx !== -1) waypoints.splice(idx, 1);
+
+    idx = playerSpawns.indexOf(selectedItem);
+    if (idx !== -1) playerSpawns.splice(idx, 1);
+
+    selectedItem = null;
+    draw();
+}
+
 // Handle Delete key
 window.addEventListener("keydown", (e) => {
     if ((e.key === "Delete" || e.key === "Del") && selectedItem) {
         // Prevent accidental deletion if focus is on input
         if (["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)) return;
         
-        eraseAt(selectedItem.x, selectedItem.y);
-        selectedItem = null;
-        draw();
+        removeSelectedItem();
     }
 });
 
@@ -1248,7 +1262,7 @@ window.addEventListener("click", () => {
 document.getElementById("cm-duplicate").onclick = () => btnDuplicate.click();
 document.getElementById("cm-delete").onclick = () => {
     if (selectedItem) {
-        eraseAt(selectedItem.x, selectedItem.y);
+        removeSelectedItem();
         ctxMenu.style.display = "none";
     }
 };
