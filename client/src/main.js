@@ -117,7 +117,7 @@ joinBtn.addEventListener("click", () => {
 
   joinBtn.style.display = "none";
   document.getElementById("lobby-setup").style.display = "none";
-  showToast("Menghubungkan ke Room...", "success");
+  // showToast("Menghubungkan ke Room...", "success");
   
   // Fullscreen pancingan dihilangkan (request user: jangan langsung FS di lobby)
   /*
@@ -266,7 +266,7 @@ onReturnToLobby(() => {
   if (document.getElementById("lobby-bg")) document.getElementById("lobby-bg").style.display = "block";
   
   // Karena kembali ke lobby, reset text game over
-  showToast("Berhasil kembali ke Lobby!", "success");
+  // showToast("Berhasil kembali ke Lobby!", "success");
 
   // Kembalikan ke Portrait tapi TETAP Fullscreen (Request User)
   try {

@@ -28,6 +28,7 @@ let battleTimeRemaining = 300;
 let syncFrameCounter = 0; // Untuk Throttling Sync (misal tiap 3 frame)
 let globalSyncIdCounter = 0; // Untuk ID unik minion/peluru
 let authorizedPlayerIds = new Set(); // List resmi id player untuk cegah cloning
+let localSequence = 0; // Untuk Network Anti-Jitter
 
 function generateUniqueId(prefix = "obj") {
     globalSyncIdCounter++;
@@ -430,8 +431,8 @@ function update() {
         const p = remotePlayers[id];
         
         // --- SYNC DECAY (Ghost Cleanup) ---
-        // Jika tidak ada paket selama 5 detik, hapus (antisipasi diskoneksi liar)
-        if (p.lastPacketTime && Date.now() - p.lastPacketTime > 5000) {
+        // Jika tidak ada paket selama 3 detik, hapus (antisipasi diskoneksi liar)
+        if (p.lastPacketTime && Date.now() - p.lastPacketTime > 3000) {
             delete remotePlayers[id];
             return;
         }
@@ -482,8 +483,10 @@ function update() {
     const peers = getPeers();
     const myId = getMyId();
 
+    localSequence++;
     const payload = {
         id: myId,
+        seq: localSequence,
         input: input,
         state: {
             x: player1.x,
@@ -1610,6 +1613,15 @@ export function handleRemoteInput(id, input, state) {
     if (!authorizedPlayerIds.has(id)) return;
 
     const player = getOrCreateRemotePlayer(id, state ? state.color : null, state ? state.name : null, state ? state.role : null);
+    
+    // --- NETWORK ANTI-JITTER (SEQUENCE CHECK) ---
+    const incomingSeq = (typeof seq === 'number') ? seq : (state ? state.seq : 0); 
+    if (player.lastProcessedSeq !== undefined && incomingSeq <= player.lastProcessedSeq) {
+        // Abaikan paket basi/telat/out-of-order
+        return;
+    }
+    player.lastProcessedSeq = incomingSeq;
+
     player.lastPacketTime = Date.now(); // Update timestamp for decay
 
     if (state) {
