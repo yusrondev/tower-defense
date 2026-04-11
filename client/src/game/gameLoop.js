@@ -1879,6 +1879,9 @@ export function handleRemoteInput(id, input, state) {
 
 let gameLoopId;
 export function startGame() {
+    lastTime = 0;
+    accumulator = 0;
+    isGameOver = false;
     if (!gameLoopId) gameLoopId = requestAnimationFrame(gameLoop);
 }
 

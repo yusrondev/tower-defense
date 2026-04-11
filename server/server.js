@@ -83,6 +83,7 @@ io.on("connection", (socket) => {
                 gameStarted: false,
                 duration: 60, // Default 1 min
                 selectedMapId: "default",
+                readyPlayers: new Set(),
                 availableColors: ["#3498db", "#e74c3c", "#2ecc71", "#f1c40f", "#9b59b6", "#e67e22", "#ecf0f1", "#1abc9c"]
             };
         }
@@ -133,6 +134,7 @@ io.on("connection", (socket) => {
         if (room.players[0] && room.players[0].id !== socket.id) return;
         
         room.gameStarted = true;
+        room.readyPlayers.clear();
         
         const players = room.players;
         
@@ -193,7 +195,28 @@ io.on("connection", (socket) => {
             mapData: mapData
         });
         
-        console.log(`Room ${currentRoom} started with ${players.length} players, duration: ${room.duration}s, map: ${room.selectedMapId}`);
+        console.log(`Room ${currentRoom} preparing with ${players.length} players, duration: ${room.duration}s, map: ${room.selectedMapId}`);
+    });
+
+    socket.on("playerReadyToStart", () => {
+        if (!currentRoom || !rooms[currentRoom]) return;
+        const room = rooms[currentRoom];
+        
+        room.readyPlayers.add(socket.id);
+        
+        // Broadcast who is ready to all
+        io.to(currentRoom).emit("matchLoadingUpdate", {
+            readyPlayerIds: Array.from(room.readyPlayers)
+        });
+
+        // Check if everyone is ready
+        const allInLobbyIds = room.players.map(p => p.id);
+        const allReady = allInLobbyIds.every(id => room.readyPlayers.has(id));
+
+        if (allReady) {
+            io.to(currentRoom).emit("matchStartFinal");
+            console.log(`Room ${currentRoom} match started for real! Everyone is ready.`);
+        }
     });
 
     socket.on("returnLobby", () => {

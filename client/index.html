@@ -659,6 +659,10 @@
     }
 
     /* Match Status Hub (Center) */
+    #match-loading-overlay {
+      transition: opacity 0.5s ease;
+    }
+
     #match-status-hub {
       position: absolute;
       top: 15px;
@@ -1540,11 +1544,116 @@
       from { transform: rotate(0deg); }
       to { transform: rotate(360deg); }
     }
+
+    /* Match Loading Overlay */
+    #match-loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: radial-gradient(circle at center, #0a0a2a 0%, #000000 100%);
+      z-index: 9999;
+      display: none; /* Flex when active */
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      color: white;
+      font-family: 'Outfit', sans-serif;
+      transition: opacity 0.5s ease;
+    }
+
+    .loading-panel {
+      background: rgba(255, 255, 255, 0.03);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 32px;
+      padding: 40px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      box-shadow: 0 0 50px rgba(0, 242, 254, 0.2);
+      animation: panelFadeUp 0.6s ease-out;
+    }
+
+    .loading-spinner {
+      width: 60px;
+      height: 60px;
+      border: 4px solid rgba(0, 242, 254, 0.1);
+      border-top: 4px solid #00f2fe;
+      border-radius: 50%;
+      animation: rotateHint 1s linear infinite;
+    }
+
+    .loading-status {
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: 4px;
+      color: #00f2fe;
+      text-shadow: 0 0 15px rgba(0, 242, 254, 0.5);
+    }
+
+    #loading-player-list {
+      width: 100%;
+      min-width: 250px;
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .loading-player-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 10px 15px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .lp-name {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .lp-status {
+      font-size: 10px;
+      font-weight: 800;
+      padding: 4px 8px;
+      border-radius: 6px;
+      letter-spacing: 1px;
+    }
+
+    .lp-status.loading {
+      background: rgba(255, 255, 255, 0.1);
+      color: rgba(255, 255, 255, 0.6);
+    }
+
+    .lp-status.ready {
+      background: rgba(46, 213, 115, 0.2);
+      color: #2ed573;
+      box-shadow: 0 0 10px rgba(46, 213, 115, 0.3);
+    }
   </style>
 </head>
 
 <body>
   <div id="toast-container"></div>
+  
+  <!-- Match Loading Overlay -->
+  <div id="match-loading-overlay">
+    <div class="loading-panel">
+      <div class="loading-spinner"></div>
+      <div class="loading-status">MEMPERSIAPKAN ARENA...</div>
+      <div id="loading-player-list">
+        <!-- Dinamis via JS -->
+      </div>
+    </div>
+  </div>
+
   <div id="lobby-bg"></div>
   <div id="lobby-menu">
     <div class="lobby-panel">

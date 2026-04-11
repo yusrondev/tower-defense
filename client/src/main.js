@@ -1,4 +1,4 @@
-import { connectSocket, joinRoom, requestStartGame, updateSettings, onSettingsUpdated, onLobbyUpdate, onMatchFound, getMyId, requestReturnLobby, onReturnToLobby } from "./network/socket.js";
+import { connectSocket, joinRoom, requestStartGame, updateSettings, onSettingsUpdated, onLobbyUpdate, onMatchFound, getMyId, requestReturnLobby, onReturnToLobby, emitPlayerReady, onMatchLoadingUpdate, onMatchStartFinal } from "./network/socket.js";
 import { initGameConfig, startGame, stopGame, syncLobbyState } from "./game/gameLoop.js";
 await connectSocket();
 
@@ -218,9 +218,25 @@ onLobbyUpdate(async ({ players, duration, selectedMapId }) => {
   });
 });
 
-// When game starts!
+// When game start init (Preparing Arena)
 onMatchFound((data) => {
   const { duration, players, mapData } = data;
+  
+  // 1. Show Loading Overlay
+  const loadingOverlay = document.getElementById("match-loading-overlay");
+  const loadingList = document.getElementById("loading-player-list");
+  
+  if (loadingOverlay) loadingOverlay.style.display = "flex";
+  if (loadingList) {
+    loadingList.innerHTML = players.map(p => `
+      <div class="loading-player-item" id="lp-${p.id}">
+        <span class="lp-name" style="color:${p.color}">${p.name} ${p.id === getMyId() ? '(KAMU)' : ''}</span>
+        <span class="lp-status loading" id="lp-status-${p.id}">LOADING...</span>
+      </div>
+    `).join("");
+  }
+
+  // 2. Init Config (Load maps & assets)
   initGameConfig(duration, players, mapData);
 
   lobbyMenu.style.display = "none";
@@ -240,6 +256,32 @@ onMatchFound((data) => {
   // Pancing ulang resize untuk menata ulang layout ukuran setelah Fullscreen
   window.dispatchEvent(new Event("resize"));
 
+  // 3. Signal Server that I'm ready
+  emitPlayerReady();
+});
+
+// Update Loading Status from other players
+onMatchLoadingUpdate(({ readyPlayerIds }) => {
+  readyPlayerIds.forEach(id => {
+    const statusEl = document.getElementById(`lp-status-${id}`);
+    if (statusEl) {
+      statusEl.innerText = "READY";
+      statusEl.className = "lp-status ready";
+    }
+  });
+});
+
+// Real Game Start (Timers Begin)
+onMatchStartFinal(() => {
+  const loadingOverlay = document.getElementById("match-loading-overlay");
+  if (loadingOverlay) {
+    loadingOverlay.style.opacity = "0";
+    setTimeout(() => {
+      loadingOverlay.style.display = "none";
+      loadingOverlay.style.opacity = "1";
+    }, 500);
+  }
+  
   startGame();
 });
 

@@ -161,6 +161,18 @@ export function onReturnToLobby(callback) {
   socket.on("returnToLobby", callback);
 }
 
+export function emitPlayerReady() {
+  if (socket) socket.emit("playerReadyToStart");
+}
+
+export function onMatchLoadingUpdate(callback) {
+  if (socket) socket.on("matchLoadingUpdate", callback);
+}
+
+export function onMatchStartFinal(callback) {
+  if (socket) socket.on("matchStartFinal", callback);
+}
+
 // LATENCY MEASUREMENT (PING)
 setInterval(() => {
   if (socket && socket.connected) {
