@@ -452,7 +452,11 @@ function update() {
                     id: b.id, x: b.x, y: b.y, dx: b.dx, dy: b.dy, power: b.power, color: b.color || b.getColor()
                 }))
             })) : null,
-            bossSpawns: player1.isHost ? bossSpawns.map(bs => ({x: bs.x, y: bs.y, targetTime: bs.targetTime})) : null,
+            bossSpawns: player1.isHost ? bossSpawns.map(bs => ({
+                x: bs.x, 
+                y: bs.y, 
+                timeRemaining: bs.targetTime - Date.now()
+            })) : null,
             towers: player1.isHost ? towers.map(t => ({
                 hp: t.hp
             })) : null
@@ -1155,6 +1159,14 @@ function drawMinimap(ctx) {
     ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
     ctx.strokeRect(mapX, mapY, mapSizeW, mapSizeH);
 
+    // Pre-Spawn Radar Indicator (Gold Pulse)
+    bossSpawns.forEach(bs => {
+        ctx.fillStyle = `rgba(241, 196, 15, ${0.4 + Math.sin(Date.now() / 200) * 0.4})`;
+        ctx.beginPath();
+        ctx.arc(mapX + bs.x * scale, mapY + bs.y * scale, 4 + Math.sin(Date.now() / 150) * 2, 0, Math.PI * 2);
+        ctx.fill();
+    });
+
     // Rintangan (Grey)
     ctx.fillStyle = "rgba(150, 150, 150, 0.4)";
     obstacles.forEach(obs => {
@@ -1449,6 +1461,12 @@ export function handleRemoteInput(id, input, state) {
                     m.targetX = sm.x;
                     m.targetY = sm.y;
                     m.hp = sm.hp;
+                    if (sm.isKing !== undefined) m.isKing = sm.isKing;
+                    if (sm.size !== undefined) {
+                        m.size = sm.size;
+                    } else if (m.isKing) {
+                        m.size = 35 + ((sm.wave - 1) * 0.5); // Force size recalibration
+                    }
 
                     // Sync King Boss laser state so clients can render it
                     if (sm.ultActive !== undefined) m.ultActive = sm.ultActive;
@@ -1503,7 +1521,12 @@ export function handleRemoteInput(id, input, state) {
         
         // Sync Boss Spawns (HANYA DARI HOST)
         if (state.bossSpawns !== undefined && player.isHost) {
-            bossSpawns = state.bossSpawns || [];
+            // Gunakan timeRemaining relatif untuk menghindari masalah sinkronisasi jam beda HP/PC
+            bossSpawns = (state.bossSpawns || []).map(bs => ({
+                x: bs.x,
+                y: bs.y,
+                targetTime: Date.now() + bs.timeRemaining
+            }));
         }
 
         // Sync Spells jika dikirim (HANYA DARI HOST)
