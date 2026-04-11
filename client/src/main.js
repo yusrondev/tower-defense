@@ -140,7 +140,7 @@ startBtn.addEventListener("click", () => {
   requestStartGame();
 });
 
-onLobbyUpdate(({ players, duration, selectedMapId }) => {
+onLobbyUpdate(async ({ players, duration, selectedMapId }) => {
   const container = document.getElementById("players-container");
   const lobbyPlayersList = document.getElementById("lobby-players-list");
   const hostSettings = document.getElementById("host-settings");
