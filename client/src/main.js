@@ -278,7 +278,7 @@ async function refreshMapList() {
     const maps = await res.json();
     
     // Clear and build list
-    mapSelect.innerHTML = '<option value="default">Default Map</option>';
+    mapSelect.innerHTML = '<option value="default">GALAXY</option>';
     
     maps.forEach(mapFile => {
       const displayName = mapFile
@@ -299,7 +299,7 @@ async function refreshMapList() {
     }
   } catch (e) {
     console.warn("Failed to refresh maps:", e);
-    mapSelect.innerHTML = '<option value="default">Default Map (Failed to load list)</option>';
+    mapSelect.innerHTML = '<option value="default">GALAXY (Failed to load list)</option>';
   } finally {
     isMapLoading = false;
   }
