@@ -103,6 +103,21 @@ joinBtn.addEventListener("click", () => {
 
   // If validation pass
   joinRoom(roomId, playerName, selectedRole);
+
+  // TRIGGER FULLSCREEN & LANDSCAPE (Capture Gesture saat pencet Gabung Room)
+  // Ini adalah solusi agar Guest tetap bisa Fullscreen (Browser butuh sentuhan user)
+  try {
+    if (document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
+    if (screen.orientation && screen.orientation.lock) {
+      screen.orientation.lock("landscape").catch(() => {});
+    }
+  } catch (e) { }
+
+  // Pancing ulang resize untuk menata ulang layout ukuran
+  window.dispatchEvent(new Event("resize"));
+
   joinBtn.style.display = "none";
   document.getElementById("lobby-setup").style.display = "none";
   showToast("Menghubungkan ke Room...", "success");
