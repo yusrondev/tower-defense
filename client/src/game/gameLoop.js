@@ -1,7 +1,7 @@
 import { Player } from "./player.js";
 import { getPlayer1Input } from "../input/inputHandler.js";
 import { getPeers } from "../network/webrtc.js";
-import { getMyId, sendSync } from "../network/socket.js";
+import { getMyId, sendSync, sendSyncTo } from "../network/socket.js";
 import { obstacles, setMapData, arenaWidth, arenaHeight, drawObstacles, getRandomSafePosition, checkObstacleCollision, checkEntityCollision, checkTowerCollision } from "./map.js";
 import { Spell } from "./spell.js";
 import { Tower } from "./tower.js";
@@ -25,6 +25,13 @@ let accumulator = 0;
 const TIME_STEP = 1000 / 60; // Fixed 60 FPS update
 let battleTimeTotal = 300; // default 5 menit
 let battleTimeRemaining = 300;
+let syncFrameCounter = 0; // Untuk Throttling Sync (misal tiap 3 frame)
+let globalSyncIdCounter = 0; // Untuk ID unik minion/peluru
+
+function generateUniqueId(prefix = "obj") {
+    globalSyncIdCounter++;
+    return `${prefix}_${getMyId()}_${globalSyncIdCounter}_${Date.now().toString(36)}`;
+}
 
 function resizeCanvas() {
     const dpr = window.devicePixelRatio || 1;
@@ -454,11 +461,17 @@ function update() {
         if (floatingTexts[i].life <= 0) floatingTexts.splice(i, 1);
     }
 
+    // --- THROTTLED SYNC (20Hz) ---
+    // Ngirim tiap 3 frame (~20 kali per detik) buat ngurangin JSON bombing
+    syncFrameCounter++;
+    if (syncFrameCounter % 3 !== 0) return; 
+
     // kirim ke semua peer (WebRTC)
     const peers = getPeers();
+    const myId = getMyId();
 
-    const payloadStr = JSON.stringify({
-        id: getMyId(),
+    const payload = {
+        id: myId,
         input: input,
         state: {
             x: player1.x,
@@ -477,46 +490,52 @@ function update() {
             lastDirY: player1.lastDir.y,
             ultActive: player1.ultActive,
             shieldTimer: player1.shieldTimer,
+            consumedSpellIds: player1.consumedSpellIds
+        }
+    };
+
+    // HANYA HOST yang ngirim data game global (Minions, Towers, Timer, Spells)
+    if (player1.isHost) {
+        Object.assign(payload.state, {
             battleTimeRemaining: battleTimeRemaining,
             waveTimer: waveTimer,
             waveNumber: waveNumber,
-            consumedSpellIds: player1.consumedSpellIds,
-            playerHps: player1.isHost ? allPlayers.reduce((acc, p) => { acc[p.id] = p.hp; return acc; }, {}) : null,
-            spells: player1.isHost ? spells.map(s => ({
+            playerHps: allPlayers.reduce((acc, p) => { acc[p.id] = p.hp; return acc; }, {}),
+            spells: spells.map(s => ({
                 id: s.id, x: s.x, y: s.y, type: s.type, lifetime: s.lifetime
-            })) : null,
+            })),
             isGameOver: isGameOver,
-            minions: player1.isHost ? minions.map(m => ({
+            minions: minions.map(m => ({
                 id: m.id, x: m.x, y: m.y, hp: m.hp, maxHp: m.maxHp, color: m.color, wave: m.wave, isKing: m.isKing,
                 ultActive: m.ultActive,
                 lastDirX: m.lastDir.x, lastDirY: m.lastDir.y,
-                bullets: (m.bullets || []).map(b => ({
+                // Batasi jumlah peluru yang disinkronisasi untuk hemat bandwidth
+                bullets: (m.bullets || []).slice(-3).map(b => ({
                     id: b.id, x: b.x, y: b.y, dx: b.dx, dy: b.dy, power: b.power, color: b.color || b.getColor()
                 }))
-            })) : null,
-            bossSpawns: player1.isHost ? bossSpawns.map(bs => ({
+            })),
+            bossSpawns: bossSpawns.map(bs => ({
                 x: bs.x, 
                 y: bs.y, 
                 timeRemaining: bs.targetTime - Date.now()
-            })) : null,
-            towers: player1.isHost ? towers.map(t => ({
+            })),
+            towers: towers.map(t => ({
                 hp: t.hp
-            })) : null
-        }
-    });
+            }))
+        });
+    }
 
-    let webrtcSentCount = 0;
-    Object.values(peers).forEach(({ channel }) => {
+    const payloadStr = JSON.stringify(payload);
+
+    // ITERATE PEERS and send targeting specifically
+    Object.values(peers).forEach(({ id, channel }) => {
         if (channel && channel.readyState === "open") {
             channel.send(payloadStr);
-            webrtcSentCount++;
+        } else {
+            // FALLBACK: Hanya kirim ke peer yang belum dapet via WebRTC
+            sendSyncTo(id, payloadStr);
         }
     });
-
-    // FALLBACK HYBRID: Jika WebRTC belum terbuka / terblokir NAT, gunakan jalur Socket.IO
-    if (webrtcSentCount !== Object.keys(peers).length && Object.keys(peers).length > 0) {
-        sendSync(payloadStr);
-    }
 
     // Collision: Player Bullets -> Minions
     allPlayers.forEach(p => {
@@ -1525,6 +1544,12 @@ function getOrCreateRemotePlayer(id, color, name, role) {
     return remotePlayers[id];
 }
 
+export function removeRemotePlayer(id) {
+    if (remotePlayers[id]) {
+        delete remotePlayers[id];
+    }
+}
+
 // dipanggil dari WebRTC
 export function handleRemoteInput(id, input, state) {
     if (id === getMyId()) return;
@@ -1755,7 +1780,7 @@ function spawnWave() {
                 if (isGameOver) return;
                 const baseHp = 100 + (waveNumber * 20);
                 const minionHp = baseHp * 2.5;
-                const mId = `wave_${waveNumber}_m_${i}_${Date.now()}`;
+                const mId = generateUniqueId(`king_w${waveNumber}`);
                 const m = new Minion(spawnX, spawnY, minionHp, 1.2, waveNumber, waveColor, isKing, mId);
                 m.onShoot = () => playBulletSound(false);
                 if (isKing) m.onUltimatum = () => playUltimatumSound(false);
@@ -1772,7 +1797,7 @@ function spawnWave() {
                 if (isGameOver) return;
                 const baseHp = 100 + (waveNumber * 20);
                 const minionHp = baseHp * (0.3 + (i * 0.1));
-                const mId = `wave_${waveNumber}_m_${i}_${Date.now()}`;
+                const mId = generateUniqueId(`m_w${waveNumber}`);
                 const m = new Minion(spawnX, spawnY, minionHp, 1.2, waveNumber, waveColor, false, mId);
                 m.onShoot = () => playBulletSound(false);
                 

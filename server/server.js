@@ -214,6 +214,10 @@ io.on("connection", (socket) => {
         socket.to(currentRoom).emit("sync", data);
     });
 
+    socket.on("syncTo", ({ target, data }) => {
+        io.to(target).emit("sync", data);
+    });
+
     socket.on("disconnect", () => {
         console.log("Player disconnected:", socket.id);
         if (currentRoom && rooms[currentRoom]) {
@@ -233,6 +237,7 @@ io.on("connection", (socket) => {
                 if (!room.players.find(p => p.isHost)) {
                     room.players[0].isHost = true;
                 }
+                io.to(currentRoom).emit("playerDisconnected", socket.id);
                 io.to(currentRoom).emit("lobbyUpdate", {
                     players: room.players,
                     duration: room.duration,

@@ -1,5 +1,5 @@
 import { createPeerConnection, getPeers } from "./webrtc.js";
-import { setLocalSpawn, setPlayerColor, handleRemoteInput, stopGame } from "../game/gameLoop.js";
+import { setLocalSpawn, setPlayerColor, handleRemoteInput, removeRemotePlayer, stopGame } from "../game/gameLoop.js";
 
 let socket;
 
@@ -23,6 +23,10 @@ export function connectSocket() {
     socket.on("sync", (data) => {
       const parsed = JSON.parse(data);
       handleRemoteInput(parsed.id, parsed.input, parsed.state);
+    });
+
+    socket.on("playerDisconnected", (id) => {
+      removeRemotePlayer(id);
     });
 
     socket.on("matchFound", async (data) => {
@@ -134,6 +138,10 @@ export function requestStartGame() {
 
 export function sendSync(dataStr) {
   if (socket) socket.emit("sync", dataStr);
+}
+
+export function sendSyncTo(target, dataStr) {
+  if (socket) socket.emit("syncTo", { target, dataStr });
 }
 
 export function onLobbyUpdate(callback) {

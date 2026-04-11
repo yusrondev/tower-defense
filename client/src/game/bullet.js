@@ -1,8 +1,8 @@
 import { checkObstacleCollision } from "./map.js";
 
 export class Bullet {
-  constructor(x, y, dx, dy, power = 1) {
-    this.id = `b_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+  constructor(x, y, dx, dy, power = 1, id = null) {
+    this.id = id || `b_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     this.x = x;
     this.y = y;
     this.dx = dx;
