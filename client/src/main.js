@@ -1,5 +1,5 @@
-import { connectSocket, joinRoom, requestStartGame, updateSettings, onSettingsUpdated, onLobbyUpdate, onMatchFound, getMyId } from "./network/socket.js";
-import { initGameConfig, startGame } from "./game/gameLoop.js";
+import { connectSocket, joinRoom, requestStartGame, updateSettings, onSettingsUpdated, onLobbyUpdate, onMatchFound, getMyId, requestReturnLobby, onReturnToLobby } from "./network/socket.js";
+import { initGameConfig, startGame, stopGame } from "./game/gameLoop.js";
 await connectSocket();
 
 const joinBtn = document.getElementById("join-room-btn");
@@ -202,6 +202,25 @@ onMatchFound((data) => {
       // User said it still happens, so maybe we need to be more aggressive.
     });
   });
+});
+
+const returnLobbyBtn = document.getElementById("return-lobby-btn");
+if (returnLobbyBtn) {
+  returnLobbyBtn.addEventListener("click", () => {
+    requestReturnLobby();
+  });
+}
+
+onReturnToLobby(() => {
+  stopGame(); // Stop game loop
+  
+  // Sembunyikan UI Game & Tampilkan UI Lobby
+  document.getElementById("game-over-overlay").style.display = "none";
+  document.getElementById("game-container").style.display = "none";
+  document.getElementById("lobby-menu").style.display = "flex";
+  
+  // Karena kembali ke lobby, reset text game over
+  showToast("Berhasil kembali ke Lobby!", "success");
 });
 
 // 🔥 pastikan DOM sudah siap

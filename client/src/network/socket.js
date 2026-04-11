@@ -1,5 +1,5 @@
 import { createPeerConnection, getPeers } from "./webrtc.js";
-import { setLocalSpawn, setPlayerColor, handleRemoteInput } from "../game/gameLoop.js";
+import { setLocalSpawn, setPlayerColor, handleRemoteInput, stopGame } from "../game/gameLoop.js";
 
 let socket;
 
@@ -138,6 +138,14 @@ export function sendSync(dataStr) {
 
 export function onLobbyUpdate(callback) {
   socket.on("lobbyUpdate", callback);
+}
+
+export function requestReturnLobby() {
+  socket.emit("returnLobby");
+}
+
+export function onReturnToLobby(callback) {
+  socket.on("returnToLobby", callback);
 }
 
 // LATENCY MEASUREMENT (PING)

@@ -46,6 +46,7 @@ const towers = [];
 const minions = [];
 let waveNumber = 0;
 let waveTimer = 0;
+let bossSpawns = []; // For King Boss spawn radar
 
 // Sound FX Assets
 const soundFx = {
@@ -238,6 +239,7 @@ export function initGameConfig(duration, players) {
     towers.push(new Tower(100, 450 - 40, 1000, 80, "BASE"));     // BASE
 
     minions.length = 0;
+    bossSpawns.length = 0;
     waveNumber = 0;
     waveTimer = 0;
 }
@@ -450,6 +452,7 @@ function update() {
                     id: b.id, x: b.x, y: b.y, dx: b.dx, dy: b.dy, power: b.power, color: b.color || b.getColor()
                 }))
             })) : null,
+            bossSpawns: player1.isHost ? bossSpawns.map(bs => ({x: bs.x, y: bs.y, targetTime: bs.targetTime})) : null,
             towers: player1.isHost ? towers.map(t => ({
                 hp: t.hp
             })) : null
@@ -1031,6 +1034,51 @@ function draw() {
     // Render Spells
     spells.forEach(s => s.draw(ctx));
 
+    // Render Boss Spawns (Radar)
+    const now = Date.now();
+    player1.isHost && (bossSpawns = bossSpawns.filter(bs => bs.targetTime > now)); // Only host maintains list time, sync handles clients
+    
+    bossSpawns.forEach(bs => {
+        const timeRemaining = bs.targetTime - now;
+        if (timeRemaining < 0) return;
+        
+        const radius = 50 + Math.sin(now / 150) * 15; // Berdenyut
+        
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(bs.x, bs.y, radius, 0, Math.PI * 2);
+        
+        // Warna api/emas warning
+        const opacity = Math.min(1, (timeRemaining % 1000) / 1000 + 0.2); 
+        ctx.fillStyle = `rgba(241, 196, 15, ${opacity * 0.15})`;
+        ctx.fill();
+        
+        ctx.strokeStyle = `rgba(231, 76, 60, ${opacity})`;
+        ctx.lineWidth = 3;
+        ctx.setLineDash([8, 8]);
+        ctx.stroke();
+        
+        // Radar scanning line
+        ctx.beginPath();
+        ctx.moveTo(bs.x, bs.y);
+        ctx.arc(bs.x, bs.y, radius, (now / 200) % (Math.PI * 2), (now / 200) % (Math.PI * 2) + 0.8);
+        ctx.lineTo(bs.x, bs.y);
+        ctx.fillStyle = "rgba(231, 76, 60, 0.5)";
+        ctx.fill();
+        
+        // Cooldown Number
+        const secondsLeft = Math.ceil(timeRemaining / 1000);
+        ctx.fillStyle = "white";
+        ctx.font = "bold 24px 'Outfit', sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = "#ff4757";
+        ctx.fillText(secondsLeft, bs.x, bs.y);
+        
+        ctx.restore();
+    });
+
     // Render Laser Ultimatum
     allPlayers.forEach(p => {
         if (p.ultActive > 0) {
@@ -1122,12 +1170,22 @@ function drawMinimap(ctx) {
         ctx.fill();
     });
 
-    // Minions (Red dots)
+    // Minions (Red dots, King is Gold)
     minions.forEach(m => {
-        ctx.fillStyle = "#ff4757";
-        ctx.beginPath();
-        ctx.arc(mapX + (m.x + m.size / 2) * scale, mapY + (m.y + m.size / 2) * scale, 2, 0, Math.PI * 2);
-        ctx.fill();
+        if (m.isKing) {
+            ctx.fillStyle = "#f1c40f";
+            ctx.beginPath();
+            ctx.arc(mapX + (m.x + m.size / 2) * scale, mapY + (m.y + m.size / 2) * scale, 4.5, 0, Math.PI * 2);
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = "#f1c40f";
+            ctx.fill();
+            ctx.shadowBlur = 0; // reset
+        } else {
+            ctx.fillStyle = "#ff4757";
+            ctx.beginPath();
+            ctx.arc(mapX + (m.x + m.size / 2) * scale, mapY + (m.y + m.size / 2) * scale, 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
     });
 
     // Lawan (Warna Dinamis)
@@ -1155,7 +1213,7 @@ function gameLoop(timestamp) {
     // CAP FPS ke 60: Jika waktu sejak frame terakhir kurang dari ~16ms, skip.
     // Ini membantu di monitor 144Hz/240Hz agar pergerakan tidak terasa "blur" atau terlalu cepat.
     if (deltaTime < 15.8) {
-        requestAnimationFrame(gameLoop);
+        if (!isGameOver) gameLoopId = requestAnimationFrame(gameLoop);
         return;
     }
 
@@ -1179,7 +1237,7 @@ function gameLoop(timestamp) {
         actionButtons.style.display = (player1.isAlive && !isGameOver) ? "flex" : "none";
     }
 
-    requestAnimationFrame(gameLoop);
+    if (!isGameOver) gameLoopId = requestAnimationFrame(gameLoop);
 }
 
 function drawUltimatum(ctx, p) {
@@ -1442,6 +1500,11 @@ export function handleRemoteInput(id, input, state) {
                 }
             }
         }
+        
+        // Sync Boss Spawns (HANYA DARI HOST)
+        if (state.bossSpawns !== undefined && player.isHost) {
+            bossSpawns = state.bossSpawns || [];
+        }
 
         // Sync Spells jika dikirim (HANYA DARI HOST)
         if (state.spells && player.isHost) {
@@ -1483,8 +1546,17 @@ export function handleRemoteInput(id, input, state) {
     player.lastInput = input;
 }
 
+let gameLoopId;
 export function startGame() {
-    requestAnimationFrame(gameLoop);
+    if (!gameLoopId) gameLoopId = requestAnimationFrame(gameLoop);
+}
+
+export function stopGame() {
+    isGameOver = true;
+    if (gameLoopId) {
+        cancelAnimationFrame(gameLoopId);
+        gameLoopId = null;
+    }
 }
 // --- HELPER FUNCTIONS FOR TOWER DEFENSE ---
 
@@ -1497,17 +1569,33 @@ function spawnWave() {
     const kingSpawnsThisWave = (waveNumber % 2 === 1);
 
     for (let i = 0; i < 4; i++) {
-        setTimeout(() => {
-            if (isGameOver) return;
-            const isKing = kingSpawnsThisWave && (i === 3);
-            const baseHp = 100 + (waveNumber * 20);
-            const minionHp = isKing ? baseHp * 2.5 : (baseHp * (0.3 + (i * 0.1)));
-            const mId = `wave_${waveNumber}_m_${i}_${Date.now()}`;
-            const m = new Minion(1180, 200 + Math.random() * 800, minionHp, 1.2, waveNumber, waveColor, isKing, mId);
-            m.onShoot = () => playBulletSound(false);
-            if (isKing) m.onUltimatum = () => playUltimatumSound(false);
-            minions.push(m);
-        }, i * 1000);
+        const isKing = kingSpawnsThisWave && (i === 3);
+        const spawnX = 1180;
+        const spawnY = 200 + Math.random() * 800;
+
+        if (isKing) {
+            bossSpawns.push({ x: spawnX, y: spawnY, targetTime: Date.now() + i * 1000 + 4000 });
+            setTimeout(() => {
+                if (isGameOver) return;
+                const baseHp = 100 + (waveNumber * 20);
+                const minionHp = baseHp * 2.5;
+                const mId = `wave_${waveNumber}_m_${i}_${Date.now()}`;
+                const m = new Minion(spawnX, spawnY, minionHp, 1.2, waveNumber, waveColor, isKing, mId);
+                m.onShoot = () => playBulletSound(false);
+                if (isKing) m.onUltimatum = () => playUltimatumSound(false);
+                minions.push(m);
+            }, i * 1000 + 4000); // Ekstra 4 detik untuk radar pre-spawn
+        } else {
+            setTimeout(() => {
+                if (isGameOver) return;
+                const baseHp = 100 + (waveNumber * 20);
+                const minionHp = baseHp * (0.3 + (i * 0.1));
+                const mId = `wave_${waveNumber}_m_${i}_${Date.now()}`;
+                const m = new Minion(spawnX, spawnY, minionHp, 1.2, waveNumber, waveColor, false, mId);
+                m.onShoot = () => playBulletSound(false);
+                minions.push(m);
+            }, i * 1000);
+        }
     }
 }
 

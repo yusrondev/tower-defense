@@ -112,6 +112,19 @@ io.on("connection", (socket) => {
         console.log(`Room ${currentRoom} started with ${players.length} players, duration: ${room.duration}s`);
     });
 
+    socket.on("returnLobby", () => {
+        if (!currentRoom || !rooms[currentRoom]) return;
+        
+        const room = rooms[currentRoom];
+        
+        // Hanya host yang bisa mengakhiri/reset
+        if (room.players[0] && room.players[0].id === socket.id) {
+            room.gameStarted = false;
+            io.to(currentRoom).emit("returnToLobby");
+            console.log(`Room ${currentRoom} returned to lobby by host.`);
+        }
+    });
+
     socket.on("sync", (data) => {
         if (!currentRoom) return;
         socket.to(currentRoom).emit("sync", data);
