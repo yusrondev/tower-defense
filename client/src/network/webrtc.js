@@ -19,9 +19,12 @@ export function createPeerConnection(socket, targetId, isInitiator) {
         };
 
         channel.onmessage = (e) => {
-            const { id, input, state } = JSON.parse(e.data);
-
-            handleRemoteInput(id, input, state); // 🔥 pakai ID asli
+            try {
+                const { id, input, state } = JSON.parse(e.data);
+                handleRemoteInput(id, input, state);
+            } catch (err) {
+                console.error("WebRTC Parse Error:", err, e.data);
+            }
         };
     } else {
         pc.ondatachannel = (event) => {
@@ -29,10 +32,12 @@ export function createPeerConnection(socket, targetId, isInitiator) {
             if (peers[targetId]) peers[targetId].channel = dataChannel;
 
             dataChannel.onmessage = (e) => {
-                const { id, input, state } = JSON.parse(e.data);
-
-                // 🔥 INI YANG BENAR
-                handleRemoteInput(id, input, state);
+                try {
+                    const { id, input, state } = JSON.parse(e.data);
+                    handleRemoteInput(id, input, state);
+                } catch (err) {
+                    console.error("WebRTC Parse Error (Joiner):", err, e.data);
+                }
             };
         };
     }

@@ -1,5 +1,5 @@
 import { connectSocket, joinRoom, requestStartGame, updateSettings, onSettingsUpdated, onLobbyUpdate, onMatchFound, getMyId, requestReturnLobby, onReturnToLobby } from "./network/socket.js";
-import { initGameConfig, startGame, stopGame } from "./game/gameLoop.js";
+import { initGameConfig, startGame, stopGame, syncLobbyState } from "./game/gameLoop.js";
 await connectSocket();
 
 const joinBtn = document.getElementById("join-room-btn");
@@ -161,6 +161,9 @@ startBtn.addEventListener("click", () => {
 });
 
 onLobbyUpdate(async ({ players, duration, selectedMapId }) => {
+  // Update Game Loop state for Live Transfers (Host/Role/Ghost cleanup)
+  syncLobbyState(players);
+
   const container = document.getElementById("players-container");
   const lobbyPlayersList = document.getElementById("lobby-players-list");
   const hostSettings = document.getElementById("host-settings");

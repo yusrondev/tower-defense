@@ -27,6 +27,7 @@ let battleTimeTotal = 300; // default 5 menit
 let battleTimeRemaining = 300;
 let syncFrameCounter = 0; // Untuk Throttling Sync (misal tiap 3 frame)
 let globalSyncIdCounter = 0; // Untuk ID unik minion/peluru
+let authorizedPlayerIds = new Set(); // List resmi id player untuk cegah cloning
 
 function generateUniqueId(prefix = "obj") {
     globalSyncIdCounter++;
@@ -226,7 +227,9 @@ export function initGameConfig(duration, players, mapData) {
     player1.resetState();
 
     // 4. Tambahkan player remotes dari data match terbaru
+    authorizedPlayerIds.clear();
     players.forEach(p => {
+        authorizedPlayerIds.add(p.id);
         if (p.id !== getMyId()) {
             const remote = getOrCreateRemotePlayer(p.id, p.color, p.name, p.role || "damager");
             remote.resetState();
@@ -423,7 +426,16 @@ function update() {
     }
 
     // update remote players
-    Object.values(remotePlayers).forEach(p => {
+    Object.keys(remotePlayers).forEach(id => {
+        const p = remotePlayers[id];
+        
+        // --- SYNC DECAY (Ghost Cleanup) ---
+        // Jika tidak ada paket selama 5 detik, hapus (antisipasi diskoneksi liar)
+        if (p.lastPacketTime && Date.now() - p.lastPacketTime > 5000) {
+            delete remotePlayers[id];
+            return;
+        }
+
         if (p.lastInput) {
             p.update(p.lastInput, allPlayers, towers, minions); // simulasi gerakan searah (dead reckoning)
         }
@@ -461,12 +473,12 @@ function update() {
         if (floatingTexts[i].life <= 0) floatingTexts.splice(i, 1);
     }
 
-    // --- THROTTLED SYNC (20Hz) ---
-    // Ngirim tiap 3 frame (~20 kali per detik) buat ngurangin JSON bombing
+    // --- SYNC (40Hz Ceiling) ---
+    // Ngirim tiap ~1.5 frame (rata-rata 40Hz) buat kestabilan DataChannel di 3+ player.
+    // 60Hz terlalu berat untuk DataChannel browser jika banyak peer.
     syncFrameCounter++;
-    if (syncFrameCounter % 3 !== 0) return; 
-
-    // kirim ke semua peer (WebRTC)
+    if (syncFrameCounter % 3 === 0) return; // Skip tiap 3 frame sekali -> ~40Hz
+    
     const peers = getPeers();
     const myId = getMyId();
 
@@ -490,7 +502,8 @@ function update() {
             lastDirY: player1.lastDir.y,
             ultActive: player1.ultActive,
             shieldTimer: player1.shieldTimer,
-            consumedSpellIds: player1.consumedSpellIds
+            consumedSpellIds: player1.consumedSpellIds,
+            isHost: player1.isHost // Authority Heartbeat
         }
     };
 
@@ -509,8 +522,7 @@ function update() {
                 id: m.id, x: m.x, y: m.y, hp: m.hp, maxHp: m.maxHp, color: m.color, wave: m.wave, isKing: m.isKing,
                 ultActive: m.ultActive,
                 lastDirX: m.lastDir.x, lastDirY: m.lastDir.y,
-                // Batasi jumlah peluru yang disinkronisasi untuk hemat bandwidth
-                bullets: (m.bullets || []).slice(-3).map(b => ({
+                bullets: (m.bullets || []).map(b => ({
                     id: b.id, x: b.x, y: b.y, dx: b.dx, dy: b.dy, power: b.power, color: b.color || b.getColor()
                 }))
             })),
@@ -761,16 +773,24 @@ function endGame(isTimeUp = true) {
     const winnerDisplay = document.getElementById("winner-text");
     const endTitle = document.getElementById("end-title");
 
+    if (!overlay) return;
+
     overlay.style.display = "flex";
+    overlay.classList.remove("success", "fail", "show");
+    
+    // Add small delay for CSS transition
+    setTimeout(() => {
+        overlay.classList.add("show");
+    }, 100);
 
     if (isTimeUp) {
+        overlay.classList.add("success");
         endTitle.innerText = "DEFENSE SUCCESS!";
         winnerDisplay.innerText = "KAMU BERHASIL BERTAHAN!";
-        winnerDisplay.style.color = "#00f2fe";
     } else {
+        overlay.classList.add("fail");
         endTitle.innerText = "GAME OVER";
         winnerDisplay.innerText = "SEMUA TOWER HANCUR!";
-        winnerDisplay.style.color = "#ff4757";
     }
 }
 
@@ -878,41 +898,43 @@ function updateLowHPEffect() {
 }
 
 function updateUI() {
-    // Scoreboard Horizontal Cooperative
-    const scoreList = document.getElementById("scoreboard-list");
-    if (scoreList) {
+    // 1. Leaderboard (Top Left - Vertical)
+    const leaderboardHud = document.getElementById("leaderboard-hud");
+    if (leaderboardHud) {
         const allPlayers = [player1, ...Object.values(remotePlayers)];
         const sorted = allPlayers.sort((a, b) => b.score - a.score);
 
-        scoreList.innerHTML = `
-            <div class="score-item" style="border-color: #00f2fe; background: rgba(0, 242, 254, 0.1);">
-                <span class="score-name" style="color: #00f2fe;">WAVE:</span>
-                <span class="score-val">${waveNumber}</span>
-            </div>
-        ` + sorted.map(p => `
-            <div class="score-item">
-                <span class="score-name">${p.name}:</span>
-                <span class="score-val">${p.score}</span>
+        leaderboardHud.innerHTML = sorted.map(p => `
+            <div class="leaderboard-item">
+                <span class="leaderboard-name" style="color: ${p.color}">${p.name}</span>
+                <span class="leaderboard-score">${p.score}</span>
             </div>
         `).join("");
     }
 
-    // --- WAVE COOLDOWN UI ---
-    const waveTimerHUD = document.getElementById("wave-timer-val");
-    if (waveTimerHUD) {
-        const remainingFrames = Math.max(0, 900 - waveTimer);
-        const remainingSec = Math.ceil(remainingFrames / 60);
-        const mins = Math.floor(remainingSec / 60);
-        const secs = remainingSec % 60;
-        waveTimerHUD.innerText = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    // 2. Match Status Hub (Top Center)
+    const waveNumberHUD = document.getElementById("wave-number-val");
+    if (waveNumberHUD) waveNumberHUD.innerText = `WAVE ${waveNumber}`;
 
-        // Visual warning if wave is imminent (last 3 seconds)
-        if (remainingSec <= 3) {
-            waveTimerHUD.style.color = "#ff4757";
-            waveTimerHUD.style.textShadow = "0 0 15px rgba(255, 71, 87, 0.8)";
+    // 3. Cinematic Wave Announcement (Floating Center)
+    const waveAnnounce = document.getElementById("wave-announcement-overlay");
+    const announceTimer = document.getElementById("announcement-timer-val");
+    
+    if (waveAnnounce && announceTimer) {
+        // Force hide if game is over
+        if (isGameOver) {
+            waveAnnounce.classList.remove("show");
         } else {
-            waveTimerHUD.style.color = "#00f2fe";
-            waveTimerHUD.style.textShadow = "0 0 10px rgba(0, 242, 254, 0.5)";
+            const remainingFrames = Math.max(0, 900 - waveTimer);
+            const remainingSec = Math.ceil(remainingFrames / 60);
+            
+            // Only show for the last 3-4 seconds
+            if (remainingSec <= 3 && remainingSec > 0) {
+                waveAnnounce.classList.add("show");
+                announceTimer.innerText = remainingSec.toString().padStart(2, '0');
+            } else {
+                waveAnnounce.classList.remove("show");
+            }
         }
     }
 
@@ -1550,13 +1572,50 @@ export function removeRemotePlayer(id) {
     }
 }
 
+/**
+ * Sinkronisasi otoritas Host & Role saat game sedang jalan (handle host transfer)
+ */
+export function syncLobbyState(players) {
+    if (!players) return;
+    
+    // 1. Identifikasi Host Baru & Update Role
+    players.forEach(p => {
+        if (p.id === getMyId()) {
+            player1.isHost = p.isHost;
+            player1.role = p.role;
+        } else {
+            const remote = remotePlayers[p.id];
+            if (remote) {
+                remote.isHost = p.isHost;
+                remote.role = p.role;
+            }
+        }
+    });
+
+    // 2. Bersihkan pemain yang sudah tidak ada di list server (Ghost cleanup)
+    const serverPlayerIds = new Set(players.map(p => p.id));
+    Object.keys(remotePlayers).forEach(id => {
+        if (!serverPlayerIds.has(id)) {
+            removeRemotePlayer(id);
+        }
+    });
+}
+
 // dipanggil dari WebRTC
 export function handleRemoteInput(id, input, state) {
-    if (id === getMyId()) return;
+    const myId = getMyId();
+    if (!id || id === myId) return;
+
+    // HANYA proses jika ID ada di list resmi (Fix Cloning)
+    if (!authorizedPlayerIds.has(id)) return;
 
     const player = getOrCreateRemotePlayer(id, state ? state.color : null, state ? state.name : null, state ? state.role : null);
+    player.lastPacketTime = Date.now(); // Update timestamp for decay
 
     if (state) {
+        // Authority Pulse: Jika paket lapor dia Host, update belief kita
+        if (state.isHost !== undefined) player.isHost = state.isHost;
+
         if (state.color) player.color = state.color;
         // Inisialisasi awal target target jika baru connect
         if (player.targetX === undefined) {

@@ -21,8 +21,13 @@ export function connectSocket() {
     });
 
     socket.on("sync", (data) => {
-      const parsed = JSON.parse(data);
-      handleRemoteInput(parsed.id, parsed.input, parsed.state);
+      try {
+        const parsed = JSON.parse(data);
+        if (!parsed) return;
+        handleRemoteInput(parsed.id, parsed.input, parsed.state);
+      } catch (err) {
+        console.error("Socket Sync Parse Error:", err, data);
+      }
     });
 
     socket.on("playerDisconnected", (id) => {

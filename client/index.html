@@ -546,115 +546,266 @@
     }
 
     #game-over-overlay {
-      position: absolute;
+      position: fixed;
       top: 0;
       left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.85);
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.9);
       display: none;
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      z-index: 20;
+      z-index: 5000;
       color: white;
       font-family: 'Outfit', sans-serif;
+      text-align: center;
+      transition: background 0.8s ease;
     }
 
-    #game-over-overlay h2 {
-      font-size: 50px;
-      margin-bottom: 10px;
+    #game-over-overlay.success {
+      background: radial-gradient(circle at center, rgba(46, 213, 115, 0.15) 0%, rgba(0, 0, 0, 0.95) 100%);
+    }
+
+    #game-over-overlay.fail {
+      background: radial-gradient(circle at center, rgba(231, 76, 60, 0.15) 0%, rgba(0, 0, 0, 0.95) 100%);
+    }
+
+    .results-card {
+      background: rgba(255, 255, 255, 0.03);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 24px;
+      padding: 40px 60px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 15px;
+      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6);
+      transform: scale(0.8);
+      opacity: 0;
+      transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    #game-over-overlay.show .results-card {
+      transform: scale(1);
+      opacity: 1;
+    }
+
+    #end-title {
+      font-size: 48px;
+      font-weight: 900;
+      letter-spacing: -1px;
+      margin: 0;
+      text-transform: uppercase;
+    }
+
+    #game-over-overlay.success #end-title {
+      color: #2ed573;
+      text-shadow: 0 0 20px rgba(46, 213, 115, 0.5);
+    }
+
+    #game-over-overlay.fail #end-title {
+      color: #ff4757;
+      text-shadow: 0 0 20px rgba(255, 71, 87, 0.5);
     }
 
     #winner-text {
-      font-size: 30px;
-      color: yellow;
-      margin-bottom: 30px;
+      font-size: 18px;
+      opacity: 0.8;
+      font-weight: 500;
+      margin-bottom: 20px;
+      letter-spacing: 2px;
+      color: white;
     }
 
     .lobby-btn {
-      font-size: 18px;
-      padding: 12px 24px;
+      font-size: 16px;
+      padding: 14px 32px;
       cursor: pointer;
-      background: #4CAF50;
+      background: transparent;
       color: white;
-      border: none;
-      border-radius: 5px;
-      font-weight: bold;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
     }
 
-    .lobby-btn:hover {
-      background: #45a049;
+    #game-over-overlay.success .lobby-btn {
+      background: rgba(46, 213, 115, 0.1);
+      border-color: rgba(46, 213, 115, 0.5);
     }
 
-    .lobby-btn:disabled {
-      background: #555;
-      cursor: not-allowed;
+    #game-over-overlay.success .lobby-btn:hover {
+      background: #2ed573;
+      box-shadow: 0 0 30px rgba(46, 213, 115, 0.4);
+      transform: translateY(-2px);
     }
 
-    /* Scoreboard HUD (FFA style) */
-    #score-hud {
+    #game-over-overlay.fail .lobby-btn {
+      background: rgba(255, 71, 87, 0.1);
+      border-color: rgba(255, 71, 87, 0.5);
+    }
+
+    #game-over-overlay.fail .lobby-btn:hover {
+      background: #ff4757;
+      box-shadow: 0 0 30px rgba(255, 71, 87, 0.4);
+      transform: translateY(-2px);
+    }
+
+    /* Match Status Hub (Center) */
+    #match-status-hub {
       position: absolute;
       top: 15px;
-      left: 15px;
-      /* Pojok Kiri Atas */
-      background: rgba(0, 0, 0, 0.3);
-      backdrop-filter: blur(6px);
-      padding: 6px 15px;
-      border-radius: 8px;
-      color: white;
-      font-family: 'Outfit', sans-serif;
+      left: 50%;
+      transform: translateX(-50%);
       display: flex;
-      flex-direction: row;
-      /* Paksa Horizontal */
+      flex-direction: column;
       align-items: center;
-      gap: 12px;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      z-index: 5;
+      gap: 2px;
+      z-index: 10;
       pointer-events: none;
+      font-family: 'Outfit', sans-serif;
     }
 
-    #scoreboard-list {
+    .status-panel {
+      background: rgba(0, 0, 0, 0.4);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 4px 16px;
       display: flex;
-      gap: 8px;
       align-items: center;
-      flex-wrap: nowrap;
-      /* Jangan pernah membungkus (column) */
-    }
-
-    .score-item {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      padding: 2px 8px;
-      background: rgba(255, 255, 255, 0.05);
-      border-radius: 4px;
-      border: 1px solid rgba(255, 255, 255, 0.03);
-    }
-
-    .score-name {
-      font-weight: 500;
-      font-size: 12px;
-      opacity: 0.8;
-      max-width: 60px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .score-val {
-      color: #f1c40f;
-      font-weight: 800;
-      font-size: 14px;
-      min-width: 15px;
-      text-align: center;
+      gap: 15px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
     }
 
     #battle-timer {
       color: #e74c3c;
-      font-size: 16px;
+      font-size: 20px;
       font-weight: 900;
-      padding: 0 8px;
+      letter-spacing: 1px;
+      text-shadow: 0 0 10px rgba(231, 76, 60, 0.5);
+    }
+
+    .wave-status {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
       border-left: 1px solid rgba(255, 255, 255, 0.2);
+      padding-left: 15px;
+    }
+
+    #wave-number-val {
+      font-size: 16px;
+      font-weight: 800;
+      color: #00f2fe;
+      opacity: 0.8;
+      border-left: 1px solid rgba(255, 255, 255, 0.2);
+      padding-left: 12px;
+      margin-left: 12px;
+    }
+
+    /* Cinematic Wave Announcement (Center 3D Glass) */
+    #wave-announcement-overlay {
+      position: absolute;
+      top: 30%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      pointer-events: none;
+      opacity: 0;
+      transition: all 0.4s ease-out;
+      font-family: 'Outfit', sans-serif;
+    }
+
+    #wave-announcement-overlay.show {
+      opacity: 1;
+      top: 35%;
+    }
+
+    .glass-3d-box {
+      background: rgba(0, 0, 0, 0.6);
+      border-radius: 12px;
+      padding: 15px 30px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .announcement-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    #announcement-timer-val {
+      font-size: 40px;
+      font-weight: 900;
+      color: #ff4757;
+      text-shadow: 0 0 20px rgba(255, 71, 87, 0.4);
+      line-height: 1;
+    }
+
+    /* Leaderboard HUD (Top Left - Vertical) */
+    #leaderboard-hud {
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .leaderboard-item {
+      background: rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(6px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 4px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      min-width: 120px;
+      gap: 20px;
+      animation: slideInLeft 0.3s ease-out;
+    }
+
+    @keyframes slideInLeft {
+      from { opacity: 0; transform: translateX(-20px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    .leaderboard-name {
+      font-size: 12px;
+      font-weight: 600;
+      max-width: 80px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .leaderboard-score {
+      font-size: 14px;
+      font-weight: 900;
+      color: #f1c40f;
     }
 
     #respawn-msg {
@@ -971,10 +1122,7 @@
     }
 
     #wave-timer-val {
-      font-size: 16px;
-      font-weight: 900;
-      color: #00f2fe;
-      text-shadow: 0 0 10px rgba(0, 242, 254, 0.5);
+      display: none;
     }
 
     /* Orientation Lock Overlay (Mobile) */
@@ -1472,17 +1620,30 @@
   </div>
 
   <div id="game-over-overlay">
-    <h2 id="end-title">DEFENSE COMPLETED</h2>
-    <div id="winner-text">YOU SURVIVED!</div>
-    <button id="return-lobby-btn" class="lobby-btn">Kembali ke Lobby</button>
+    <div class="results-card">
+      <h2 id="end-title">TITLE</h2>
+      <div id="winner-text">MESSAGE</div>
+      <button id="return-lobby-btn" class="lobby-btn">Kembali ke Lobby</button>
+    </div>
   </div>
 
   <div id="game-container" style="display: none;">
-    <div id="score-hud">
-      <div id="scoreboard-list">
-        <!-- Dinamis via JS -->
+    <div id="match-status-hub">
+      <div class="status-panel">
+        <div id="battle-timer">00:00</div>
+        <div id="wave-number-val">WAVE 1</div>
       </div>
-      <div id="battle-timer">00:00</div>
+    </div>
+
+    <!-- Cinematic Announcement Overlay -->
+    <div id="wave-announcement-overlay">
+      <div class="glass-3d-box">
+        <div class="announcement-label">NEXT WAVE IN</div>
+        <div id="announcement-timer-val">03</div>
+      </div>
+    </div>
+    <div id="leaderboard-hud">
+      <!-- Dinamis via JS -->
     </div>
 
     <div id="respawn-msg">RESPAWN DALAM <span id="respawn-timer">5</span>s</div>
@@ -1498,10 +1659,8 @@
       <span id="atk-value">1.0</span><span style="font-size: 10px; margin-left: 2px;">x</span>
     </div>
 
-    <div id="wave-hud">
-      <div class="wave-label">Next Wave In</div>
-      <div id="wave-timer-val">00:00</div>
-    </div>
+    <div id="hit-vignette"></div>
+    <div id="death-overlay"></div>
 
     <canvas id="gameCanvas" width="800" height="600"></canvas>
 
@@ -1523,8 +1682,6 @@
         <div class="cd-overlay" id="cd-shoot"></div>
       </div>
     </div>
-    <div id="hit-vignette"></div>
-    <div id="death-overlay"></div>
   </div>
 
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>

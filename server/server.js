@@ -201,12 +201,11 @@ io.on("connection", (socket) => {
         
         const room = rooms[currentRoom];
         
-        // Hanya host yang bisa mengakhiri/reset
-        if (room.players[0] && room.players[0].id === socket.id) {
-            room.gameStarted = false;
-            io.to(currentRoom).emit("returnToLobby");
-            console.log(`Room ${currentRoom} returned to lobby by host.`);
-        }
+        // Allow anyone to trigger return to lobby (Co-op/FFA focus)
+        // This prevents guests from getting stuck if the host is AFK after a match
+        room.gameStarted = false;
+        io.to(currentRoom).emit("returnToLobby");
+        console.log(`Room ${currentRoom} returned to lobby by ${socket.id}.`);
     });
 
     socket.on("sync", (data) => {
