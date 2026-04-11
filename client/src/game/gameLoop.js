@@ -438,6 +438,7 @@ function update() {
             shieldTimer: player1.shieldTimer,
             battleTimeRemaining: battleTimeRemaining,
             waveTimer: waveTimer,
+            waveNumber: waveNumber,
             consumedSpellIds: player1.consumedSpellIds,
             playerHps: player1.isHost ? allPlayers.reduce((acc, p) => { acc[p.id] = p.hp; return acc; }, {}) : null,
             spells: player1.isHost ? spells.map(s => ({
@@ -1469,7 +1470,12 @@ export function handleRemoteInput(id, input, state) {
                     }
 
                     // Sync King Boss laser state so clients can render it
-                    if (sm.ultActive !== undefined) m.ultActive = sm.ultActive;
+                    if (sm.ultActive !== undefined) {
+                        if (sm.ultActive > 0 && m.ultActive === 0 && m.onUltimatum) {
+                            m.onUltimatum();
+                        }
+                        m.ultActive = sm.ultActive;
+                    }
                     if (sm.lastDirX !== undefined) m.lastDir = { x: sm.lastDirX, y: sm.lastDirY };
 
                     // ID-based bullet sync: update existing, add new, remove dead
@@ -1478,10 +1484,12 @@ export function handleRemoteInput(id, input, state) {
                         const hostBulletIds = new Set(sm.bullets.map(sb => sb.id));
                         m.bullets = m.bullets.filter(b => hostBulletIds.has(b.id));
 
+                        let shotFired = false;
                         // Add new bullets the host has that we don't
                         sm.bullets.forEach(sb => {
                             const existing = m.bullets.find(b => b.id === sb.id);
                             if (!existing) {
+                                shotFired = true;
                                 const b = new Bullet(sb.x, sb.y, sb.dx, sb.dy, sb.power || 1);
                                 b.id = sb.id; // Keep same ID for tracking
                                 b.color = sb.color;
@@ -1489,6 +1497,8 @@ export function handleRemoteInput(id, input, state) {
                             }
                             // If existing: let b.update() in minion.update() handle movement
                         });
+                        
+                        if (shotFired && m.onShoot) m.onShoot();
                     }
                 } else {
                     // Create New
@@ -1544,6 +1554,7 @@ export function handleRemoteInput(id, input, state) {
     if (state && player.isHost) {
         if (state.battleTimeRemaining !== undefined) battleTimeRemaining = state.battleTimeRemaining;
         if (state.waveTimer !== undefined) waveTimer = state.waveTimer;
+        if (state.waveNumber !== undefined) waveNumber = state.waveNumber;
         if (state.isGameOver && !isGameOver) endGame();
 
         // Host Authority: HP Sync
