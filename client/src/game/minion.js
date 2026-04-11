@@ -20,7 +20,6 @@ export class Minion {
         this.isAlive = true;
         this.target = null;
         this.walkTimer = 0;
-        this.radiusOpacity = 0;
         this.onShoot = null; 
 
         this.ultActive = 0;
@@ -61,37 +60,7 @@ export class Minion {
         this.bullets.forEach(b => b.update());
         this.bullets = this.bullets.filter(b => b.active);
 
-        // Proximity calculation for UI (Radius circle) - Runs for everyone
-        let nearestThreatDist = 9999;
-        const detectionRange = this.isKing ? 450 : 300; // Match firing range
-
-        // Check players for UI radius
-        allPlayers.forEach(p => {
-            if (!p.isAlive) return;
-            const pdx = (p.x + p.size/2) - (this.x + this.size/2);
-            const pdy = (p.y + p.size/2) - (this.y + this.size/2);
-            const pdist = Math.sqrt(pdx * pdx + pdy * pdy);
-            if (pdist < nearestThreatDist) nearestThreatDist = pdist;
-        });
-        
-        // Check towers for UI radius
-        if (allTowers) {
-            allTowers.forEach(t => {
-                if (!t.isAlive) return;
-                const tdx = (t.x + t.size/2) - (this.x + this.size/2);
-                const tdy = (t.y + t.size/2) - (this.y + this.size/2);
-                const tdist = Math.sqrt(tdx * tdx + tdy * tdy);
-                if (tdist < nearestThreatDist) nearestThreatDist = tdist;
-            });
-        }
-
-        // Update Radius UI Opacity
-        if (nearestThreatDist < (detectionRange + 50)) {
-            this.radiusOpacity = Math.min(0.15, this.radiusOpacity + 0.02);
-        } else {
-            this.radiusOpacity = Math.max(0, this.radiusOpacity - 0.01);
-        }
- 
+  
         if (this.ultActive > 0) this.ultActive--;
         if (this.ultCooldown > 0) this.ultCooldown--;
  
@@ -106,6 +75,7 @@ export class Minion {
         // Host Side: Full AI Logic
         let shootTarget = null;
         let bestTargetDist = 9999;
+        const detectionRange = this.isKing ? 450 : 300; 
 
         // 1. Check for Players & Towers
         allPlayers.forEach(p => {
@@ -282,34 +252,6 @@ export class Minion {
 
     draw(ctx) {
         if (!this.isAlive) return;
-
-        // Radius Attack UI
-        if (this.radiusOpacity > 0) {
-            const rcx = this.x + this.size/2;
-            const rcy = this.y + this.size/2;
-            const rRadius = this.isKing ? 200 : 250;
-            const opacity = this.radiusOpacity;
-
-            ctx.save();
-
-            // Soft fill
-            ctx.beginPath();
-            ctx.arc(rcx, rcy, rRadius, 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(220, 50, 50, ${opacity * 0.12})`;
-            ctx.fill();
-
-            // Inner ring (solid but soft)
-            ctx.beginPath();
-            ctx.arc(rcx, rcy, rRadius, 0, Math.PI * 2);
-            ctx.strokeStyle = `rgba(255, 80, 80, ${opacity * 0.8})`;
-            ctx.lineWidth = this.isKing ? 2 : 1.5;
-            ctx.setLineDash(this.isKing ? [6, 3] : [4, 4]);
-            ctx.shadowBlur = this.isKing ? 10 : 5;
-            ctx.shadowColor = `rgba(255, 50, 50, ${opacity})`;
-            ctx.stroke();
-
-            ctx.restore();
-        }
 
         const cx = this.x + this.size / 2;
         const cy = this.y + this.size / 2;

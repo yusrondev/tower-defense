@@ -125,12 +125,17 @@ durationSelect.addEventListener("change", () => {
 });
 
 mapSelect.addEventListener("change", () => {
-  updateSettings(durationSelect.value, mapSelect.value);
+  const mapId = mapSelect.value;
+  updateSettings(durationSelect.value, mapId);
+  updateMapPreview(mapId); // Update pratinjau lokal segera untuk Host
 });
 
 onSettingsUpdated(({ duration, mapId }) => {
   if (duration !== undefined) durationSelect.value = duration;
-  if (mapId !== undefined) mapSelect.value = mapId;
+  if (mapId !== undefined) {
+    if (mapSelect.value !== mapId) mapSelect.value = mapId;
+    updateMapPreview(mapId);
+  }
 });
 
 startBtn.addEventListener("click", () => {
@@ -162,6 +167,7 @@ onLobbyUpdate(async ({ players, duration, selectedMapId }) => {
     // Pastikan valuenya benar-benar ada sebelum set (mencegah reset ke default jika telat)
     if (Array.from(mapSelect.options).some(opt => opt.value === selectedMapId)) {
       mapSelect.value = selectedMapId;
+      updateMapPreview(selectedMapId);
     }
   }
 
@@ -208,7 +214,8 @@ onMatchFound((data) => {
   window.dispatchEvent(new Event("resize"));
 
   startGame();
-  
+});
+
   // Prevent selection/copy behavior on skill buttons
   document.querySelectorAll(".btn").forEach(btn => {
     const prevent = (e) => {
@@ -225,7 +232,6 @@ onMatchFound((data) => {
       // User said it still happens, so maybe we need to be more aggressive.
     });
   });
-});
 
 const returnLobbyBtn = document.getElementById("return-lobby-btn");
 if (returnLobbyBtn) {
@@ -259,6 +265,143 @@ onReturnToLobby(() => {
     }
   } catch (e) {}
 });
+
+async function updateMapPreview(mapId) {
+  const container = document.getElementById("map-preview-container");
+  const canvas = document.getElementById("map-preview-canvas");
+  if (!container || !canvas) return;
+
+  container.style.display = "flex";
+
+  if (!mapId || mapId === "default") {
+    // Hardcoded GALAXY (Default) Preview Data
+    const galaxyData = {
+      width: 1800,
+      height: 900,
+      obstacles: [
+        { x: 0, y: -20, w: 1800, h: 20, type: "border" },
+        { x: 0, y: 900, w: 1800, h: 20, type: "border" },
+        { x: -20, y: 0, w: 20, h: 900, type: "border" },
+        { x: 1800, y: 0, w: 20, h: 900, type: "border" }
+      ],
+      towers: [
+        { x: 400, y: 440, size: 80, label: "TOWER 1" },
+        { x: 1400, y: 440, size: 80, label: "TOWER 2" },
+        { x: 900, y: 820, size: 80, label: "BASE" }
+      ]
+    };
+    renderMapPreview(canvas, galaxyData);
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/maps/${mapId}`);
+    if (!res.ok) throw new Error("Failed to fetch map data");
+    const mapData = await res.json();
+    renderMapPreview(canvas, mapData);
+  } catch (e) {
+    console.warn("Preview failed:", e);
+    container.style.display = "none";
+  }
+}
+
+function renderMapPreview(canvas, mapData) {
+  const ctx = canvas.getContext("2d");
+  const margin = 10;
+  
+  // Kalkulasi Bounding Box Terluar (termasuk border negatif)
+  let minX = 0, minY = 0;
+  let maxX = mapData.width || 800;
+  let maxY = mapData.height || 600;
+
+  if (mapData.obstacles) {
+    mapData.obstacles.forEach(obs => {
+      minX = Math.min(minX, obs.x);
+      minY = Math.min(minY, obs.y);
+      maxX = Math.max(maxX, obs.x + obs.w);
+      maxY = Math.max(maxY, obs.y + obs.h);
+    });
+  }
+  
+  const totalW = maxX - minX;
+  const totalH = maxY - minY;
+
+  // Clear
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Scaling logic (Fit to canvas)
+  const scale = Math.min(
+    (canvas.width - margin * 2) / totalW,
+    (canvas.height - margin * 2) / totalH
+  );
+
+  const drawX = (canvas.width - totalW * scale) / 2;
+  const drawY = (canvas.height - totalH * scale) / 2;
+
+  // Helper untuk konversi koordinat map ke koordinat canvas preview
+  const toCanvasX = (mx) => drawX + (mx - minX) * scale;
+  const toCanvasY = (my) => drawY + (my - minY) * scale;
+
+  // Background Grid (Technical look)
+  ctx.strokeStyle = "rgba(0, 242, 254, 0.05)";
+  ctx.lineWidth = 1;
+  const gridStep = 40 * scale;
+  for (let x = drawX; x <= drawX + totalW * scale; x += gridStep) {
+    ctx.beginPath(); ctx.moveTo(x, drawY); ctx.lineTo(x, drawY + totalH * scale); ctx.stroke();
+  }
+  for (let y = drawY; y <= drawY + totalH * scale; y += gridStep) {
+    ctx.beginPath(); ctx.moveTo(drawX, y); ctx.lineTo(drawX + totalW * scale, y); ctx.stroke();
+  }
+
+  // Draw Obstacles (Neon Green/Grey)
+  if (mapData.obstacles) {
+    mapData.obstacles.forEach(obs => {
+      ctx.fillStyle = obs.type === "border" ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 242, 254, 0.4)";
+      ctx.fillRect(
+        toCanvasX(obs.x),
+        toCanvasY(obs.y),
+        obs.w * scale,
+        obs.h * scale
+      );
+      if (obs.type !== "border") {
+        ctx.strokeStyle = "#00f2fe";
+        ctx.strokeRect(toCanvasX(obs.x), toCanvasY(obs.y), obs.w * scale, obs.h * scale);
+      }
+    });
+  }
+
+  // Draw Towers (Cyan / Base Gold)
+  if (mapData.towers) {
+    mapData.towers.forEach(t => {
+      const tx = toCanvasX(t.x + t.size / 2);
+      const ty = toCanvasY(t.y + t.size / 2);
+      const tSize = (t.size / 2) * scale;
+
+      ctx.beginPath();
+      ctx.arc(tx, ty, tSize, 0, Math.PI * 2);
+      if (t.label === "BASE") {
+        ctx.fillStyle = "#f1c40f";
+        ctx.shadowBlur = 10; ctx.shadowColor = "gold";
+      } else {
+        ctx.fillStyle = "#00d2ff";
+        ctx.shadowBlur = 5; ctx.shadowColor = "#00d2ff";
+      }
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    });
+  }
+
+  // Draw Spawns (Small white dots)
+  if (mapData.playerSpawns) {
+    mapData.playerSpawns.forEach(s => {
+      ctx.fillStyle = "white";
+      ctx.beginPath();
+      ctx.arc(toCanvasX(s.x), toCanvasY(s.y), 2, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
+}
 
 async function refreshMapList() {
   if (isMapLoading) return;
