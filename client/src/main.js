@@ -104,14 +104,11 @@ joinBtn.addEventListener("click", () => {
   // If validation pass
   joinRoom(roomId, playerName, selectedRole);
 
-  // TRIGGER FULLSCREEN & LANDSCAPE (Capture Gesture saat pencet Gabung Room)
-  // Ini adalah solusi agar Guest tetap bisa Fullscreen (Browser butuh sentuhan user)
+  // TRIGGER FULLSCREEN (Hanya Fullscreen, tetap Portrait di Lobby)
+  // Ini menangkap User Gesture agar nanti saat In-game bisa otomatis Landscape
   try {
     if (document.documentElement.requestFullscreen) {
       document.documentElement.requestFullscreen().catch(() => {});
-    }
-    if (screen.orientation && screen.orientation.lock) {
-      screen.orientation.lock("landscape").catch(() => {});
     }
   } catch (e) { }
 
@@ -266,17 +263,13 @@ onReturnToLobby(() => {
   // Karena kembali ke lobby, reset text game over
   showToast("Berhasil kembali ke Lobby!", "success");
 
-  // Exit Fullscreen dan Kembalikan ke Potrait (Lobby View)
+  // Kembalikan ke Portrait tapi TETAP Fullscreen (Request User)
   try {
-    if (document.fullscreenElement && document.exitFullscreen) {
-      document.exitFullscreen().catch(() => {});
-    }
-    if (screen.orientation && screen.orientation.unlock) {
-      screen.orientation.unlock();
-      // Opsional: Coba paksa potrait jika didukung
-      if (screen.orientation.lock) {
-          screen.orientation.lock("portrait").catch(() => {});
-      }
+    if (screen.orientation && screen.orientation.lock) {
+      screen.orientation.lock("portrait").catch(() => {
+        // Jika gagal lock portrait, coba unlock saja
+        if (screen.orientation.unlock) screen.orientation.unlock();
+      });
     }
   } catch (e) {}
 });
