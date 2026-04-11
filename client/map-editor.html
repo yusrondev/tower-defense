@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Map Editor Pro - Tower Defense</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-editor: #1e1e1e;
+      --bg-sidebar: #252526;
+      --bg-toolbar: #333333;
+      --border: #3c3c3c;
+      --accent: #00f2fe;
+      --text: #cccccc;
+      --text-bright: #ffffff;
+      --hover: #444444;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg-editor);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    /* HEADER / TOOLBAR */
+    #header {
+      height: 48px;
+      background: var(--bg-toolbar);
+      display: flex;
+      align-items: center;
+      padding: 0 15px;
+      gap: 15px;
+      border-bottom: 3px solid var(--accent);
+      z-index: 100;
+    }
+
+    .header-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .editor-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 14px;
+      letter-spacing: 1px;
+      color: var(--accent);
+      margin-right: 20px;
+    }
+
+    button {
+      background: #444;
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 6px 12px;
+      font-size: 12px;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    button:hover {
+      background: var(--hover);
+      color: var(--text-bright);
+    }
+
+    button.active-tool {
+      background: var(--accent);
+      color: #000;
+      border-color: var(--accent);
+      font-weight: bold;
+    }
+
+    input[type="number"], input[type="text"] {
+      background: #3c3c3c;
+      color: #fff;
+      border: 1px solid var(--border);
+      padding: 5px 8px;
+      font-size: 12px;
+      border-radius: 3px;
+    }
+
+    /* MAIN LAYOUT */
+    #main-container {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* SIDEBAR */
+    #sidebar {
+      width: 250px;
+      background: var(--bg-sidebar);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .sidebar-header {
+      padding: 10px 15px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #888;
+      border-bottom: 1px solid var(--border);
+    }
+
+    #map-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px 0;
+    }
+
+    .map-item {
+      padding: 8px 15px;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: background 0.2s;
+    }
+
+    .map-item:hover {
+      background: var(--hover);
+    }
+
+    .map-item.active {
+      background: #37373d;
+      color: var(--accent);
+    }
+
+    .map-item::before {
+      content: "📄";
+      font-size: 12px;
+    }
+
+    /* CANVAS */
+    #editor-viewport {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #000;
+      position: relative;
+    }
+
+    canvas {
+      box-shadow: 0 0 50px rgba(0,0,0,0.5);
+      border: 1px solid #333;
+      background: #0a0a0a;
+    }
+
+    /* PROPERTIES PANE (Floating or Right) */
+    #properties-pane {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      width: 200px;
+      background: rgba(30, 30, 30, 0.9);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 15px;
+      display: none; /* Shown via JS */
+    }
+
+    .prop-group {
+      margin-bottom: 12px;
+    }
+
+    .prop-group label {
+      display: block;
+      font-size: 11px;
+      margin-bottom: 5px;
+      color: #888;
+    }
+
+    /* CONTEXT MENU */
+    #context-menu {
+      position: absolute;
+      background: var(--bg-sidebar);
+      border: 1px solid var(--border);
+      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+      border-radius: 4px;
+      padding: 5px 0;
+      z-index: 1000;
+      display: none;
+      min-width: 150px;
+    }
+    .menu-item {
+      padding: 8px 15px;
+      font-size: 12px;
+      cursor: pointer;
+      color: var(--text);
+    }
+    .menu-item:hover {
+      background: var(--accent);
+      color: #000;
+    }
+    .menu-sep {
+      height: 1px;
+      background: var(--border);
+      margin: 5px 0;
+    }
+
+    .delete-map-btn {
+      margin-left: auto;
+      background: transparent;
+      border: none;
+      color: #888;
+      font-size: 14px;
+      opacity: 0;
+      transition: opacity 0.2s;
+      padding: 2px 5px;
+    }
+    .map-item:hover .delete-map-btn {
+      opacity: 1;
+    }
+    .delete-map-btn:hover {
+      color: #e74c3c;
+    }
+
+    /* SCROLLBAR */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #444; border-radius: 5px; }
+    ::-webkit-scrollbar-thumb:hover { background: #666; }
+
+  </style>
+</head>
+<body>
+
+  <div id="header">
+    <div class="editor-title">MAP_EDITOR_PRO</div>
+    
+    <div class="header-group">
+      <button id="btn-back" onclick="window.location.href='/'">🔙 Home</button>
+    </div>
+
+    <div style="width:20px;"></div>
+
+    <div class="header-group">
+      <button id="tool-wall" class="active-tool">🧱 Wall</button>
+      <button id="tool-tower">🗼 Tower</button>
+      <button id="tool-waypoint">📍 Path</button>
+      <button id="tool-spawn">🏁 Spawn</button>
+      <button id="tool-select">🖱️ Select</button>
+      <button id="tool-erase">🧹 Erase</button>
+    </div>
+
+    <div style="width:20px;"></div>
+
+    <div class="header-group">
+      <button id="btn-duplicate" style="display:none; background:#6344ad">✨ Duplicate</button>
+    </div>
+
+    <div style="flex:1;"></div>
+
+    <div class="header-group">
+      <button id="btn-clear" style="background:#8b2b2b">🗑️ Clear</button>
+      <button id="btn-save" style="background:#2b8b3d">💾 Save Map</button>
+    </div>
+  </div>
+
+  <div id="main-container">
+    <div id="sidebar">
+      <div id="map-list">
+        <!-- Maps populated via JS -->
+      </div>
+
+      <div class="sidebar-header" style="border-top: 1px solid var(--border); margin-top: 10px;">World Settings</div>
+      <div style="padding: 15px;">
+        <div class="prop-group">
+          <label>Arena Width</label>
+          <input type="number" id="map-width" value="1800" step="100">
+        </div>
+        <div class="prop-group">
+          <label>Arena Height</label>
+          <input type="number" id="map-height" value="900" step="100">
+        </div>
+        <div style="font-size: 10px; color: #666; margin-top: 5px;">* Border walls will auto-adjust</div>
+      </div>
+    </div>
+
+    <div id="editor-viewport">
+      <canvas id="editorCanvas" width="1800" height="900"></canvas>
+
+      <!-- Context Menu -->
+      <div id="context-menu">
+        <div class="menu-item" id="cm-duplicate">✨ Duplicate</div>
+        <div class="menu-item" id="cm-delete">🗑️ Delete Item</div>
+        <div class="menu-sep"></div>
+        <div class="menu-item" id="cm-clear-sel">🔘 Deselect</div>
+      </div>
+
+      <!-- Properties Pane (Shown when item selected) -->
+      <div id="properties-pane">
+        <div style="font-size:12px; font-weight:bold; margin-bottom:15px; color:var(--accent);">Properties</div>
+        
+        <div id="wall-options">
+          <div class="prop-group">
+            <label>Rotation Angle (°)</label>
+            <input type="number" id="wall-angle" value="0" step="15" style="width:100%;">
+          </div>
+        </div>
+
+        <div id="tower-options" style="display:none;">
+          <div class="prop-group">
+            <label>Sequence</label>
+            <div id="tower-sequence-info" style="color:var(--accent); font-weight:bold; font-size:13px;"></div>
+          </div>
+          <div class="prop-group">
+            <label>HP Points</label>
+            <input type="number" id="tower-hp" value="500" style="width:100%;">
+          </div>
+          <div class="prop-group">
+            <label>Tower Size (PX)</label>
+            <input type="number" id="tower-size" value="80" style="width:100%;">
+          </div>
+        </div>
+
+        <!-- Waypoint Options -->
+        <div id="waypoint-options" style="display:none;">
+          <div class="prop-group">
+            <label>Waypoint Index</label>
+            <div id="wp-index-info" style="color:var(--accent); font-weight:bold; font-size:13px;"></div>
+          </div>
+          <p style="font-size:10px; color:#888;">Minions will travel through these nodes in order.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="src/editor/main.js"></script>
+</body>
+</html>
+

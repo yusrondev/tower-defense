@@ -120,8 +120,8 @@ export function joinRoom(roomId, playerName, role) {
   socket.emit("joinRoom", { roomId, playerName, role });
 }
 
-export function updateSettings(duration) {
-  socket.emit("updateSettings", { duration });
+export function updateSettings(duration, mapId) {
+  socket.emit("updateSettings", { duration, mapId });
 }
 
 export function onSettingsUpdated(callback) {

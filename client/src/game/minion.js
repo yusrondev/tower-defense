@@ -1,4 +1,5 @@
 import { Bullet } from "./bullet.js";
+import { checkObstacleCollision } from "./map.js";
 
 export class Minion {
     constructor(x, y, maxHp, speed, wave, color, isKing = false, id = null) {
@@ -40,9 +41,20 @@ export class Minion {
         
         // Fire rate scaling (Small minions only): 150→45 frames over 10 waves
         this.maxCooldown = Math.max(45, 150 - (wave * 12));
+
+        // Waypoints
+        this.waypoints = null;
+        this.currentWaypointIndex = 0;
     }
 
-    update(targetTower, allPlayers, isHost = true) {
+    setWaypoints(wps) {
+        if (wps && wps.length > 0) {
+            this.waypoints = wps;
+            this.currentWaypointIndex = 0;
+        }
+    }
+
+    update(allTowers, allPlayers, isHost = true) {
         if (!this.isAlive) return;
 
         // Bullets update for everyone
@@ -50,19 +62,31 @@ export class Minion {
         this.bullets = this.bullets.filter(b => b.active);
 
         // Proximity calculation for UI (Radius circle) - Runs for everyone
-        let nearestPlayerDist = 9999;
+        let nearestThreatDist = 9999;
+        const detectionRange = this.isKing ? 450 : 300; // Match firing range
+
+        // Check players for UI radius
         allPlayers.forEach(p => {
             if (!p.isAlive) return;
             const pdx = (p.x + p.size/2) - (this.x + this.size/2);
             const pdy = (p.y + p.size/2) - (this.y + this.size/2);
             const pdist = Math.sqrt(pdx * pdx + pdy * pdy);
-            if (pdist < nearestPlayerDist) nearestPlayerDist = pdist;
+            if (pdist < nearestThreatDist) nearestThreatDist = pdist;
         });
+        
+        // Check towers for UI radius
+        if (allTowers) {
+            allTowers.forEach(t => {
+                if (!t.isAlive) return;
+                const tdx = (t.x + t.size/2) - (this.x + this.size/2);
+                const tdy = (t.y + t.size/2) - (this.y + this.size/2);
+                const tdist = Math.sqrt(tdx * tdx + tdy * tdy);
+                if (tdist < nearestThreatDist) nearestThreatDist = tdist;
+            });
+        }
 
         // Update Radius UI Opacity
-        // Update Radius UI Opacity
-        const detectionRange = this.isKing ? 200 : 250;
-        if (nearestPlayerDist < (detectionRange + 50)) {
+        if (nearestThreatDist < (detectionRange + 50)) {
             this.radiusOpacity = Math.min(0.15, this.radiusOpacity + 0.02);
         } else {
             this.radiusOpacity = Math.max(0, this.radiusOpacity - 0.01);
@@ -80,78 +104,158 @@ export class Minion {
         }
 
         // Host Side: Full AI Logic
-        // Reset target to tower by default
-        this.target = targetTower;
         let shootTarget = null;
-        let bestPlayerDist = 9999;
+        let bestTargetDist = 9999;
 
-        // 1. Check for Players first (Priority)
+        // 1. Check for Players & Towers
         allPlayers.forEach(p => {
             if (!p.isAlive) return;
             const pdx = (p.x + p.size/2) - (this.x + this.size/2);
             const pdy = (p.y + p.size/2) - (this.y + this.size/2);
             const pdist = Math.sqrt(pdx * pdx + pdy * pdy);
             
-            // Target nearest player within range
-            if (pdist < detectionRange && pdist < bestPlayerDist) {
-                bestPlayerDist = pdist;
+            if (pdist < detectionRange && pdist < bestTargetDist) {
+                bestTargetDist = pdist;
                 shootTarget = { x: p.x + p.size/2, y: p.y + p.size/2, dist: pdist };
             }
         });
 
+        if (allTowers) {
+            allTowers.forEach(t => {
+                if (!t.isAlive) return;
+                const tdx = (t.x + t.size/2) - (this.x + this.size/2);
+                const tdy = (t.y + t.size/2) - (this.y + this.size/2);
+                const tdist = Math.sqrt(tdx * tdx + tdy * tdy);
+
+                if (tdist < detectionRange && tdist < bestTargetDist) {
+                    bestTargetDist = tdist;
+                    shootTarget = { x: t.x + t.size/2, y: t.y + t.size/2, dist: tdist };
+                }
+            });
+        }
+
+        // Determine default fallback target (prefer BASE tower)
+        if (allTowers) {
+            const base = allTowers.find(t => t.label === "BASE" && t.isAlive);
+            this.target = base || allTowers.find(t => t.isAlive);
+        } else {
+            this.target = null;
+        }
+
+        // --- Waypoint Navigation Logic ---
+        let waypointTarget = null;
+        if (this.waypoints && this.currentWaypointIndex < this.waypoints.length) {
+            waypointTarget = this.waypoints[this.currentWaypointIndex];
+            
+            // If close to waypoint, move to next
+            const dx = waypointTarget.x - (this.x + this.size/2);
+            const dy = waypointTarget.y - (this.y + this.size/2);
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            
+            // Increased threshold from 15 to 30 for better reliability
+            if (dist < 30) {
+                this.currentWaypointIndex++;
+                if (this.currentWaypointIndex < this.waypoints.length) {
+                    waypointTarget = this.waypoints[this.currentWaypointIndex];
+                } else {
+                    waypointTarget = null;
+                }
+            }
+        }
+
         // 2. Logic Movement & Shooting
         if (shootTarget) {
-            // Priority target: Player
+            // PRIORITY 1: AGGRESSIVE COMBAT (Overrides Path)
             const dx = shootTarget.x - (this.x + this.size / 2);
             const dy = shootTarget.y - (this.y + this.size / 2);
             const dist = shootTarget.dist;
 
-            // --- Aggressive Movement: Move towards player if too far ---
+            // Aggressive Movement
             const engagementDist = 80; 
             if (dist > engagementDist) {
-                this.x += (dx / dist) * (this.isKing ? this.speed * 0.8 : this.speed);
-                this.y += (dy / dist) * (this.isKing ? this.speed * 0.8 : this.speed);
+                const moveSpeed = (this.isKing ? this.speed * 0.8 : this.speed);
+                const vx = (dx / dist) * moveSpeed;
+                const vy = (dy / dist) * moveSpeed;
+
+                const nextX = this.x + vx;
+                if (!checkObstacleCollision({ x: nextX, y: this.y, size: this.size })) {
+                    this.x = nextX;
+                }
+                const nextY = this.y + vy;
+                if (!checkObstacleCollision({ x: this.x, y: nextY, size: this.size })) {
+                    this.y = nextY;
+                }
                 this.walkTimer += 0.2;
             }
 
+            // Attack Logic
             const firingRange = this.isKing ? 450 : 300;
             if (this.cooldown > 0) this.cooldown--;
- 
-            // Update lastDir for Laser visual
             this.lastDir = { x: dx / dist, y: dy / dist };
- 
+
             if (this.isKing) {
-                // KING BOSS: Plasma Laser every 13 seconds
                 if (this.ultCooldown === 0 && dist < firingRange) {
-                    this.ultActive = 60; // 1 second
-                    this.ultCooldown = 780; // 13 seconds
+                    this.ultActive = 60;
+                    this.ultCooldown = 780;
                     if (this.onUltimatum) this.onUltimatum();
                 }
             } else if (this.cooldown === 0 && dist < firingRange) {
                 this.shoot(dx / dist, dy / dist);
                 this.cooldown = this.maxCooldown;
             }
+
+        } else if (waypointTarget) {
+            // PRIORITY 2: PATH NAVIGATION
+            const dx = waypointTarget.x - (this.x + this.size / 2);
+            const dy = waypointTarget.y - (this.y + this.size / 2);
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            
+            if (dist > 5) {
+                const moveSpeed = (this.isKing ? this.speed * 0.8 : this.speed);
+                const vx = (dx / dist) * moveSpeed;
+                const vy = (dy / dist) * moveSpeed;
+
+                const nextX = this.x + vx;
+                if (!checkObstacleCollision({ x: nextX, y: this.y, size: this.size })) {
+                    this.x = nextX;
+                }
+                const nextY = this.y + vy;
+                if (!checkObstacleCollision({ x: this.x, y: nextY, size: this.size })) {
+                    this.y = nextY;
+                }
+                this.walkTimer += 0.2;
+            }
+            this.lastDir = { x: dx / dist, y: dy / dist };
+
         } else if (this.target) {
-            // Secondary target: Tower (Only if no player detected)
+            // PRIORITY 3: FINAL TARGET (TOWER)
             const dx = (this.target.x + this.target.size / 2) - (this.x + this.size / 2);
             const dy = (this.target.y + this.target.size / 2) - (this.y + this.size / 2);
             const dist = Math.sqrt(dx * dx + dy * dy);
 
             if (dist > (this.isKing ? 200 : 150)) {
-                this.x += (dx / dist) * (this.isKing ? this.speed * 0.8 : this.speed);
-                this.y += (dy / dist) * (this.isKing ? this.speed * 0.8 : this.speed);
+                const moveSpeed = (this.isKing ? this.speed * 0.8 : this.speed);
+                const vx = (dx / dist) * moveSpeed;
+                const vy = (dy / dist) * moveSpeed;
+
+                const nextX = this.x + vx;
+                if (!checkObstacleCollision({ x: nextX, y: this.y, size: this.size })) {
+                    this.x = nextX;
+                }
+                const nextY = this.y + vy;
+                if (!checkObstacleCollision({ x: this.x, y: nextY, size: this.size })) {
+                    this.y = nextY;
+                }
                 this.walkTimer += 0.2;
             }
 
-            // Update lastDir for Laser visual
             this.lastDir = { x: dx / dist, y: dy / dist };
- 
-            if (this.cooldown > 0) this.cooldown--; // <-- BUG FIX: was missing
+            if (this.cooldown > 0) this.cooldown--;
 
             if (this.isKing) {
                 if (this.ultCooldown === 0 && dist < 450) {
                     this.ultActive = 60;
-                    this.ultCooldown = 780; // 13 seconds
+                    this.ultCooldown = 780;
                     if (this.onUltimatum) this.onUltimatum();
                 }
             } else if (this.cooldown === 0 && dist < 450) {

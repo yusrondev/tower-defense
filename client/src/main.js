@@ -115,12 +115,19 @@ joinBtn.addEventListener("click", () => {
 });
 
 const durationSelect = document.getElementById("battle-duration");
+const mapSelect = document.getElementById("map-select");
+
 durationSelect.addEventListener("change", () => {
-  updateSettings(durationSelect.value);
+  updateSettings(durationSelect.value, mapSelect.value);
 });
 
-onSettingsUpdated(({ duration }) => {
-  durationSelect.value = duration;
+mapSelect.addEventListener("change", () => {
+  updateSettings(durationSelect.value, mapSelect.value);
+});
+
+onSettingsUpdated(({ duration, mapId }) => {
+  if (duration !== undefined) durationSelect.value = duration;
+  if (mapId !== undefined) mapSelect.value = mapId;
 });
 
 startBtn.addEventListener("click", () => {
@@ -133,7 +140,7 @@ startBtn.addEventListener("click", () => {
   requestStartGame();
 });
 
-onLobbyUpdate(({ players, duration }) => {
+onLobbyUpdate(({ players, duration, selectedMapId }) => {
   const container = document.getElementById("players-container");
   const lobbyPlayersList = document.getElementById("lobby-players-list");
   const hostSettings = document.getElementById("host-settings");
@@ -141,6 +148,7 @@ onLobbyUpdate(({ players, duration }) => {
   container.innerHTML = "";
   lobbyPlayersList.style.display = "block";
   durationSelect.value = duration;
+  if (selectedMapId) mapSelect.value = selectedMapId;
 
   // Cek apakah saya Host
   const me = players.find(p => p.id === getMyId());
@@ -165,8 +173,8 @@ onLobbyUpdate(({ players, duration }) => {
 
 // When game starts!
 onMatchFound((data) => {
-  const { duration, players } = data;
-  initGameConfig(duration, players);
+  const { duration, players, mapData } = data;
+  initGameConfig(duration, players, mapData);
 
   lobbyMenu.style.display = "none";
   gameContainer.style.display = "block";
@@ -224,6 +232,21 @@ onReturnToLobby(() => {
 });
 
 // 🔥 pastikan DOM sudah siap
-window.onload = () => {
-  // Logic runs automatically or via event listeners
+window.onload = async () => {
+  // Fetch available maps
+  try {
+    const res = await fetch("/api/maps");
+    if (res.ok) {
+      const maps = await res.json();
+      const mapSelect = document.getElementById("map-select");
+      maps.forEach(mapFile => {
+        const option = document.createElement("option");
+        option.value = mapFile;
+        option.innerText = mapFile;
+        mapSelect.appendChild(option);
+      });
+    }
+  } catch (e) {
+    console.error("Failed to load maps:", e);
+  }
 };

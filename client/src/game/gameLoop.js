@@ -2,7 +2,7 @@ import { Player } from "./player.js";
 import { getPlayer1Input } from "../input/inputHandler.js";
 import { getPeers } from "../network/webrtc.js";
 import { getMyId, sendSync } from "../network/socket.js";
-import { obstacles, drawObstacles, getRandomSafePosition, checkObstacleCollision, checkEntityCollision, checkTowerCollision } from "./map.js";
+import { obstacles, setMapData, arenaWidth, arenaHeight, drawObstacles, getRandomSafePosition, checkObstacleCollision, checkEntityCollision, checkTowerCollision } from "./map.js";
 import { Spell } from "./spell.js";
 import { Tower } from "./tower.js";
 import { Minion } from "./minion.js";
@@ -16,6 +16,8 @@ let camX = 0;
 let camY = 0;
 let camZoom = 0.8;
 let lastCamInitialized = false;
+let mapNameDisplayTimer = 0; // Timer for intro text animation
+let currentMapName = "GALAXY";
 
 // UI & Game State
 let lastTime = 0;
@@ -47,6 +49,7 @@ const minions = [];
 let waveNumber = 0;
 let waveTimer = 0;
 let bossSpawns = []; // For King Boss spawn radar
+let currentMapData = null; // Store map configuration for pathing
 
 // Sound FX Assets
 const soundFx = {
@@ -111,14 +114,19 @@ let isGameOver = false;
 let lastPlayerHp = player1.hp; // Untuk deteksi Damage
 
 // STARFIELD (Galaxy Background)
-const STARS = [];
-for (let i = 0; i < 400; i++) { // More stars for larger map
-    STARS.push({
-        x: Math.random() * 1800,
-        y: Math.random() * 900,
-        size: Math.random() * 2 + 0.5,
-        twinkle: Math.random() * Math.PI
-    });
+let STARS = [];
+function initStars() {
+    STARS = [];
+    // Generate enough stars to cover the map plus some padding
+    const count = Math.max(400, (arenaWidth * arenaHeight) / 4000);
+    for (let i = 0; i < count; i++) {
+        STARS.push({
+            x: Math.random() * arenaWidth,
+            y: Math.random() * arenaHeight,
+            size: Math.random() * 2 + 0.5,
+            twinkle: Math.random() * Math.PI
+        });
+    }
 }
 
 // PARTICLE SYSTEM
@@ -182,11 +190,20 @@ function createSparkBurst(x, y, color) {
     }
 }
 
-export function initGameConfig(duration, players) {
+export function initGameConfig(duration, players, mapData) {
     battleTimeTotal = duration;
     battleTimeRemaining = duration;
     isGameOver = false;
     spellTimer = 0;
+    currentMapData = mapData;
+    
+    // Setup Map Name Display
+    const rawName = (mapData && mapData.name) ? mapData.name : "GALAXY";
+    currentMapName = rawName.replace(/[._-]/g, ' ').replace('.json', '').trim().toUpperCase();
+    if (!currentMapName) currentMapName = "GALAXY";
+    mapNameDisplayTimer = 180; // 3 seconds @ 60fps
+
+    initStars(); // Regenerate stars for current map size
 
     // 1. Bersihkan sisa state pertempuran sebelumnya
     spells.length = 0;
@@ -231,12 +248,38 @@ export function initGameConfig(duration, players) {
         }
     });
 
-    // 5. Initialize Towers
+    // Initialize Map & Towers
+    setMapData(mapData);
+
+    // Set Player Spawn Point from map data if available
+    if (mapData && mapData.playerSpawns && mapData.playerSpawns.length > 0) {
+        const spawn = mapData.playerSpawns[0];
+        player1.x = spawn.x - player1.size/2;
+        player1.y = spawn.y - player1.size/2;
+        player1.startX = player1.x;
+        player1.startY = player1.y;
+    } else {
+        // Guaranteed safe spawn point fallback
+        if (checkObstacleCollision({ x: player1.x, y: player1.y, size: player1.size })) {
+            const safe = getRandomSafePosition(player1.size);
+            player1.x = safe.x;
+            player1.y = safe.y;
+            player1.startX = safe.x;
+            player1.startY = safe.y;
+        }
+    }
+
     towers.length = 0;
-    // Spread along the 1800px width
-    towers.push(new Tower(1500, 450 - 40, 300, 80, "TOWER 1"));  // FRONT
-    towers.push(new Tower(800, 450 - 40, 600, 80, "TOWER 2"));   // MIDDLE
-    towers.push(new Tower(100, 450 - 40, 1000, 80, "BASE"));     // BASE
+    if (mapData && mapData.towers && mapData.towers.length > 0) {
+        mapData.towers.forEach(t => {
+            towers.push(new Tower(t.x, t.y, t.maxHp, t.size, t.label));
+        });
+    } else {
+        // Spread along the 1800px width
+        towers.push(new Tower(1500, 450 - 40, 300, 80, "TOWER 1"));  // FRONT
+        towers.push(new Tower(800, 450 - 40, 600, 80, "TOWER 2"));   // MIDDLE
+        towers.push(new Tower(100, 450 - 40, 1000, 80, "BASE"));     // BASE
+    }
 
     minions.length = 0;
     bossSpawns.length = 0;
@@ -368,9 +411,8 @@ function update() {
 
     // Respawn check
     if (!player1.isAlive && player1.respawnTimer <= 0) {
-        // Smart Respawn: Cari lokasi paling jauh dari musuh yang hidup
-        const safest = getSafestSpawnPoint();
-        player1.respawn(safest.x, safest.y, towers);
+        // Consistent Respawn: Return to the original spawn point from editor
+        player1.respawn(player1.startX, player1.startY, towers);
     }
 
     // update remote players
@@ -386,10 +428,9 @@ function update() {
     });
 
     // Update Minions
-    const activeTower = towers.find(t => t.hp > 0);
     for (let i = minions.length - 1; i >= 0; i--) {
         const m = minions[i];
-        m.update(activeTower, allPlayers, player1.isHost);
+        m.update(towers, allPlayers, player1.isHost);
         if (m.hp <= 0) {
             m.isAlive = false;
             createBurst(m.x + m.size / 2, m.y + m.size / 2, m.color);
@@ -642,27 +683,47 @@ function getLaserDistance(shooter, maxLen) {
     const ndy = dy / mag;
 
     for (const obs of obstacles) {
+        // Transform ray to local obstacle space
+        const ox = obs.x + obs.w / 2;
+        const oy = obs.y + obs.h / 2;
+        const angle = -(obs.angle || 0) * Math.PI / 180;
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+
+        // Relative start position
+        const rx = sx - ox;
+        const ry = sy - oy;
+
+        // Local start position
+        const lx = rx * cos - ry * sin;
+        const ly = rx * sin + ry * cos;
+
+        // Local direction
+        const ldx = ndx * cos - ndy * sin;
+        const ldy = ndx * sin + ndy * cos;
+
+        // Intersection with AABB in local space (-w/2, -h/2) to (w/2, h/2)
+        const hw = obs.w / 2;
+        const hh = obs.h / 2;
+
         let tmin = -Infinity;
         let tmax = Infinity;
 
-        // X axis Slab
-        if (ndx !== 0) {
-            let t1 = (obs.x - sx) / ndx;
-            let t2 = (obs.x + obs.w - sx) / ndx;
+        if (ldx !== 0) {
+            let t1 = (-hw - lx) / ldx;
+            let t2 = (hw - lx) / ldx;
             tmin = Math.max(tmin, Math.min(t1, t2));
             tmax = Math.min(tmax, Math.max(t1, t2));
-        } else if (sx < obs.x || sx > obs.x + obs.w) continue;
+        } else if (lx < -hw || lx > hw) continue;
 
-        // Y axis Slab
-        if (ndy !== 0) {
-            let t1 = (obs.y - sy) / ndy;
-            let t2 = (obs.y + obs.h - sy) / ndy;
+        if (ldy !== 0) {
+            let t1 = (-hh - ly) / ldy;
+            let t2 = (hh - ly) / ldy;
             tmin = Math.max(tmin, Math.min(t1, t2));
             tmax = Math.min(tmax, Math.max(t1, t2));
-        } else if (sy < obs.y || sy > obs.y + obs.h) continue;
+        } else if (ly < -hh || ly > hh) continue;
 
         if (tmax >= tmin && tmax > 0) {
-            // Hit detected
             const hitT = tmin > 0 ? tmin : 0;
             if (hitT < finalLen) finalLen = hitT;
         }
@@ -746,8 +807,11 @@ function findSafestSpawnPoint() {
 
     const allAlivePlayers = [player1, ...Object.values(remotePlayers)].filter(p => p.isAlive);
     
-    // Filter out spawn points that are currently blocked by a Tower
-    const validPoints = spawnPoints.filter(pt => !checkTowerCollision({ ...pt, size: 25 }, towers));
+    // Filter out spawn points that are currently blocked by a Tower or Obstacle
+    const validPoints = spawnPoints.filter(pt => 
+        !checkTowerCollision({ ...pt, size: 25 }, towers) &&
+        !checkObstacleCollision({ ...pt, size: 25 })
+    );
 
     const candidates = validPoints.length > 0 ? validPoints : spawnPoints;
 
@@ -1003,32 +1067,37 @@ function draw() {
     ctx.scale(camZoom, camZoom);
     ctx.translate(-camX, -camY);
 
-    // DRAW STARS (Galaxy Background)
+    // DRAW STARS (Galaxy Background) - Clipped to Arena
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, arenaWidth, arenaHeight);
+    ctx.clip();
+    
     ctx.fillStyle = "white";
     STARS.forEach(s => {
         const twinkleAlpha = 0.5 + Math.sin(Date.now() * 0.005 + s.twinkle) * 0.5;
         ctx.globalAlpha = twinkleAlpha;
-        // Optimization: fillRect is much faster than arc for tiny stars
         ctx.fillRect(s.x, s.y, s.size * 2, s.size * 2);
     });
+    ctx.restore();
     ctx.globalAlpha = 1.0;
 
     // Gambar Neon Grid (Optimasi: Single path)
     ctx.lineWidth = 1;
     ctx.strokeStyle = "rgba(0, 255, 255, 0.08)";
     ctx.beginPath();
-    for (let i = 0; i <= 1800; i += 100) {
-        ctx.moveTo(i, 0); ctx.lineTo(i, 900);
+    for (let i = 0; i <= arenaWidth; i += 100) {
+        ctx.moveTo(i, 0); ctx.lineTo(i, arenaHeight);
     }
-    for (let j = 0; j <= 900; j += 100) {
-        ctx.moveTo(0, j); ctx.lineTo(1800, j);
+    for (let j = 0; j <= arenaHeight; j += 100) {
+        ctx.moveTo(0, j); ctx.lineTo(arenaWidth, j);
     }
     ctx.stroke();
 
     // Gambar Batas Map / Dinding Ujung
     ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
     ctx.lineWidth = 5;
-    ctx.strokeRect(0, 0, 1800, 900);
+    ctx.strokeRect(0, 0, arenaWidth, arenaHeight);
 
     // Render Towers
     towers.forEach(t => t.draw(ctx));
@@ -1144,12 +1213,61 @@ function draw() {
 
     // GAMBAR MINIMAP (UI Layer)
     drawMinimap(ctx);
+
+    // --- MAP NAME INTRO OVERLAY ---
+    if (mapNameDisplayTimer > 0) {
+        ctx.save();
+        
+        // Calculate Alpha for Fade In / Out
+        let alpha = 0;
+        if (mapNameDisplayTimer > 120) { // Fade In (First 1 sec)
+            alpha = (180 - mapNameDisplayTimer) / 60;
+        } else if (mapNameDisplayTimer > 60) { // Stay (Middle 1 sec)
+            alpha = 1;
+        } else { // Fade Out (Last 1 sec)
+            alpha = mapNameDisplayTimer / 60;
+        }
+
+        ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+        ctx.font = "bold 64px 'Outfit', sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        
+        // Subtle glow
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = "rgba(0, 255, 255, 0.8)";
+        
+        // Render Text in center of screen
+        ctx.fillText(currentMapName, window.innerWidth / 2, window.innerHeight / 2);
+        
+        // Subtitle
+        ctx.font = "20px 'Outfit', sans-serif";
+        // ctx.letterSpacing = "4px"; // Fixed: canvas letterSpacing not widely supported in all browsers, using space in text
+        ctx.fillText("B A T T L E   A R E N A", window.innerWidth / 2, window.innerHeight / 2 + 60);
+
+        ctx.restore();
+        mapNameDisplayTimer--;
+    }
 }
 
 function drawMinimap(ctx) {
-    const mapSizeW = 150; // Larger for rectangle
-    const mapSizeH = 75;
-    const scale = mapSizeW / 1800;
+    // 1. Calculate bounding box of all obstacles to find true map bounds
+    let minX = 0, minY = 0, maxX = arenaWidth, maxY = arenaHeight;
+    obstacles.forEach(obs => {
+        minX = Math.min(minX, obs.x);
+        minY = Math.min(minY, obs.y);
+        maxX = Math.max(maxX, obs.x + obs.w);
+        maxY = Math.max(maxY, obs.y + obs.h);
+    });
+
+    const totalWidth = maxX - minX;
+    const totalHeight = maxY - minY;
+
+    const containerLimit = 150; 
+    const scale = containerLimit / Math.max(totalWidth, totalHeight); 
+    const mapSizeW = totalWidth * scale;
+    const mapSizeH = totalHeight * scale;
+    
     // Posisikan Minimap wajar (Kanan Atas)
     const mapX = window.innerWidth - mapSizeW - 20;
     const mapY = 20;
@@ -1160,18 +1278,22 @@ function drawMinimap(ctx) {
     ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
     ctx.strokeRect(mapX, mapY, mapSizeW, mapSizeH);
 
+    // Helper to translate world coordinates to minimap coordinates
+    const toMapX = (wx) => mapX + (wx - minX) * scale;
+    const toMapY = (wy) => mapY + (wy - minY) * scale;
+
     // Pre-Spawn Radar Indicator (Gold Pulse)
     bossSpawns.forEach(bs => {
         ctx.fillStyle = `rgba(241, 196, 15, ${0.4 + Math.sin(Date.now() / 200) * 0.4})`;
         ctx.beginPath();
-        ctx.arc(mapX + bs.x * scale, mapY + bs.y * scale, 4 + Math.sin(Date.now() / 150) * 2, 0, Math.PI * 2);
+        ctx.arc(toMapX(bs.x), toMapY(bs.y), 4 + Math.sin(Date.now() / 150) * 2, 0, Math.PI * 2);
         ctx.fill();
     });
 
     // Rintangan (Grey)
     ctx.fillStyle = "rgba(150, 150, 150, 0.4)";
     obstacles.forEach(obs => {
-        ctx.fillRect(mapX + obs.x * scale, mapY + obs.y * scale, obs.w * scale, obs.h * scale);
+        ctx.fillRect(toMapX(obs.x), toMapY(obs.y), obs.w * scale, obs.h * scale);
     });
 
     // Towers (Blue/White dots)
@@ -1179,7 +1301,7 @@ function drawMinimap(ctx) {
         if (t.opacity <= 0) return;
         ctx.fillStyle = t.hp > 0 ? "#00f2fe" : "rgba(255,255,255,0.3)";
         ctx.beginPath();
-        ctx.arc(mapX + (t.x + t.size / 2) * scale, mapY + (t.y + t.size / 2) * scale, 4, 0, Math.PI * 2);
+        ctx.arc(toMapX(t.x + t.size / 2), toMapY(t.y + t.size / 2), Math.max(2, 3 * (scale/0.08)), 0, Math.PI * 2);
         ctx.fill();
     });
 
@@ -1188,7 +1310,7 @@ function drawMinimap(ctx) {
         if (m.isKing) {
             ctx.fillStyle = "#f1c40f";
             ctx.beginPath();
-            ctx.arc(mapX + (m.x + m.size / 2) * scale, mapY + (m.y + m.size / 2) * scale, 4.5, 0, Math.PI * 2);
+            ctx.arc(toMapX(m.x + m.size / 2), toMapY(m.y + m.size / 2), 4, 0, Math.PI * 2);
             ctx.shadowBlur = 8;
             ctx.shadowColor = "#f1c40f";
             ctx.fill();
@@ -1196,17 +1318,17 @@ function drawMinimap(ctx) {
         } else {
             ctx.fillStyle = "#ff4757";
             ctx.beginPath();
-            ctx.arc(mapX + (m.x + m.size / 2) * scale, mapY + (m.y + m.size / 2) * scale, 2, 0, Math.PI * 2);
+            ctx.arc(toMapX(m.x + m.size / 2), toMapY(m.y + m.size / 2), 1.5, 0, Math.PI * 2);
             ctx.fill();
         }
     });
 
     // Lawan (Warna Dinamis)
     Object.values(remotePlayers).forEach(p => {
-        if (!p.isAlive) return; // FIX: Pemain mati jangan muncul di minimap
+        if (!p.isAlive) return; 
         ctx.fillStyle = p.color || "red";
         ctx.beginPath();
-        ctx.arc(mapX + (p.x + p.size / 2) * scale, mapY + (p.y + p.size / 2) * scale, 3, 0, Math.PI * 2);
+        ctx.arc(toMapX(p.x + p.size / 2), toMapX(p.y + p.size / 2), 2.5, 0, Math.PI * 2);
         ctx.fill();
     });
 
@@ -1214,7 +1336,7 @@ function drawMinimap(ctx) {
     if (player1.isAlive) {
         ctx.fillStyle = player1.color;
         ctx.beginPath();
-        ctx.arc(mapX + (player1.x + player1.size / 2) * scale, mapY + (player1.y + player1.size / 2) * scale, 3, 0, Math.PI * 2);
+        ctx.arc(toMapX(player1.x + player1.size / 2), toMapY(player1.y + player1.size / 2), 2.5, 0, Math.PI * 2);
         ctx.fill();
     }
 }
@@ -1604,8 +1726,28 @@ function spawnWave() {
 
     for (let i = 0; i < 4; i++) {
         const isKing = kingSpawnsThisWave && (i === 3);
-        const spawnX = 1180;
-        const spawnY = 200 + Math.random() * 800;
+        const mSize = isKing ? 35 : 20;
+        
+        let spawnX, spawnY;
+
+        if (currentMapData && currentMapData.waypoints && currentMapData.waypoints.length > 0) {
+            // Spawn EXACTLY at the first waypoint (centered)
+            spawnX = currentMapData.waypoints[0].x - mSize/2;
+            spawnY = currentMapData.waypoints[0].y - mSize/2;
+        } else {
+            // Fallback: Legacy Random Y logic
+            const defaultX = arenaWidth - 100;
+            const defaultY = 100 + Math.random() * (arenaHeight - 200);
+            spawnX = defaultX;
+            spawnY = defaultY;
+
+            // Check if spawn is safe from obstacles
+            if (checkObstacleCollision({ x: spawnX, y: spawnY, size: mSize })) {
+                const safe = getRandomSafePosition(mSize);
+                spawnX = safe.x;
+                spawnY = safe.y;
+            }
+        }
 
         if (isKing) {
             bossSpawns.push({ x: spawnX, y: spawnY, targetTime: Date.now() + i * 1000 + 4000 });
@@ -1617,6 +1759,12 @@ function spawnWave() {
                 const m = new Minion(spawnX, spawnY, minionHp, 1.2, waveNumber, waveColor, isKing, mId);
                 m.onShoot = () => playBulletSound(false);
                 if (isKing) m.onUltimatum = () => playUltimatumSound(false);
+                
+                // Pass Waypoints from map config
+                if (currentMapData && currentMapData.waypoints) {
+                    m.setWaypoints(currentMapData.waypoints);
+                }
+
                 minions.push(m);
             }, i * 1000 + 4000); // Ekstra 4 detik untuk radar pre-spawn
         } else {
@@ -1627,6 +1775,12 @@ function spawnWave() {
                 const mId = `wave_${waveNumber}_m_${i}_${Date.now()}`;
                 const m = new Minion(spawnX, spawnY, minionHp, 1.2, waveNumber, waveColor, false, mId);
                 m.onShoot = () => playBulletSound(false);
+                
+                // Pass Waypoints from map config
+                if (currentMapData && currentMapData.waypoints) {
+                    m.setWaypoints(currentMapData.waypoints);
+                }
+                
                 minions.push(m);
             }, i * 1000);
         }

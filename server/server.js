@@ -2,11 +2,68 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const path = require("path");
+const fs = require("fs");
 
 const app = express();
 const server = http.createServer(app);
 
 app.use(express.static(path.join(__dirname, "../client")));
+app.use(express.json());
+
+app.get("/map-editor", (req, res) => {
+    res.sendFile(path.join(__dirname, "../client/map-editor.html"));
+});
+
+const mapsDir = path.join(__dirname, "maps");
+if (!fs.existsSync(mapsDir)) {
+    fs.mkdirSync(mapsDir);
+}
+
+app.get("/api/maps", (req, res) => {
+    fs.readdir(mapsDir, (err, files) => {
+        if (err) return res.status(500).json({ error: "Failed to read maps directory." });
+        const mapFiles = files.filter(f => f.endsWith('.json'));
+        res.json(mapFiles);
+    });
+});
+
+app.get("/api/maps/:filename", (req, res) => {
+    const filename = path.basename(req.params.filename);
+    const filePath = path.join(mapsDir, filename);
+    if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ error: "Map not found" });
+    }
+    fs.readFile(filePath, "utf8", (err, data) => {
+        if (err) return res.status(500).json({ error: "Failed to read map" });
+        res.json(JSON.parse(data));
+    });
+});
+
+app.delete("/api/maps/:filename", (req, res) => {
+    const filename = path.basename(req.params.filename);
+    const filePath = path.join(mapsDir, filename);
+    if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ error: "Map not found" });
+    }
+    fs.unlink(filePath, (err) => {
+        if (err) return res.status(500).json({ error: "Failed to delete map" });
+        res.json({ success: true });
+    });
+});
+
+app.post("/api/maps", (req, res) => {
+    const mapData = req.body;
+    let filename = req.query.filename || `map_${Date.now()}.json`;
+    
+    // Basic security: prevent path traversal
+    filename = path.basename(filename);
+    if (!filename.endsWith('.json')) filename += '.json';
+
+    fs.writeFile(path.join(mapsDir, filename), JSON.stringify(mapData, null, 2), (err) => {
+        if (err) return res.status(500).json({ error: "Failed to save map." });
+        res.json({ success: true, filename });
+    });
+});
 
 const io = new Server(server, {
     cors: { origin: "*" }
@@ -25,6 +82,7 @@ io.on("connection", (socket) => {
                 players: [], // List of { id, color, name, isHost }
                 gameStarted: false,
                 duration: 60, // Default 1 min
+                selectedMapId: "default",
                 availableColors: ["#3498db", "#e74c3c", "#2ecc71", "#f1c40f", "#9b59b6", "#e67e22", "#ecf0f1", "#1abc9c"]
             };
         }
@@ -49,17 +107,19 @@ io.on("connection", (socket) => {
         
         io.to(roomId).emit("lobbyUpdate", {
             players: room.players,
-            duration: room.duration
+            duration: room.duration,
+            selectedMapId: room.selectedMapId
         });
     });
 
-    socket.on("updateSettings", ({ duration }) => {
+    socket.on("updateSettings", ({ duration, mapId }) => {
         if (!currentRoom || !rooms[currentRoom]) return;
         const room = rooms[currentRoom];
         // Hanya host yang bisa ganti (cek socket.id == rooms[currentRoom].players[0].id)
         if (room.players[0] && room.players[0].id === socket.id) {
-            room.duration = duration;
-            socket.to(currentRoom).emit("settingsUpdated", { duration });
+            if (duration !== undefined) room.duration = duration;
+            if (mapId !== undefined) room.selectedMapId = mapId;
+            socket.to(currentRoom).emit("settingsUpdated", { duration: room.duration, mapId: room.selectedMapId });
         }
     });
 
@@ -76,25 +136,48 @@ io.on("connection", (socket) => {
         
         const players = room.players;
         
-        // Titik Spawn di ujung-ujung map (Corner & Edges) agar tidak menempel
-        const spawnPoints = [
-            { x: 100, y: 100 },   // Pojok Kiri Atas
-            { x: 1100, y: 1100 }, // Pojok Kanan Bawah
-            { x: 1100, y: 100 },  // Pojok Kanan Atas
-            { x: 100, y: 1100 },  // Pojok Kiri Bawah
-            { x: 600, y: 100 },   // Tengah Atas
-            { x: 600, y: 1100 },  // Tengah Bawah
-            { x: 100, y: 850 },   // Jauh dari Base Tower
-            { x: 1100, y: 400 }   // Jauh dari Front Tower
-        ];
+        // 1. Read selected map Data FIRST to determine spawn points
+        let mapData = null;
+        if (room.selectedMapId && room.selectedMapId !== "default") {
+            try {
+                const mapPath = path.join(mapsDir, room.selectedMapId);
+                if (fs.existsSync(mapPath)) {
+                    const rawData = fs.readFileSync(mapPath);
+                    mapData = JSON.parse(rawData);
+                }
+            } catch (err) {
+                console.error("Failed to read map file for spawning:", err);
+            }
+        }
+
+        const arenaWidth = mapData ? (mapData.width || 1800) : 1800;
+        const arenaHeight = mapData ? (mapData.height || 900) : 900;
+
+        // 2. Determine Spawn Points (Custom or dynamic fallback)
+        let spawnPoints = [];
+        if (mapData && mapData.playerSpawns && mapData.playerSpawns.length > 0) {
+            spawnPoints = mapData.playerSpawns;
+        } else {
+            // Fallback: Logic-based spawning inside map bounds
+            spawnPoints = [
+                { x: 100, y: 100 },
+                { x: arenaWidth - 100, y: arenaHeight - 100 },
+                { x: arenaWidth - 100, y: 100 },
+                { x: 100, y: arenaHeight - 100 },
+                { x: arenaWidth / 2, y: 100 },
+                { x: arenaWidth / 2, y: arenaHeight - 100 },
+                { x: 100, y: arenaHeight / 2 },
+                { x: arenaWidth - 100, y: arenaHeight / 2 }
+            ];
+        }
         
-        // Acak urutan pemain dan urutan spawn
+        // 3. Assign positions and teams
         const shuffledPlayers = [...players].sort(() => Math.random() - 0.5);
         const shuffledSpawns = [...spawnPoints].sort(() => Math.random() - 0.5);
         
         const startPositions = {};
         shuffledPlayers.forEach((p, i) => {
-            p.team = i; // Berikan ID unik sebagai "tim" agar semua musuh (No Team)
+            p.team = i; // Unique team ID for FFA
             const spawn = shuffledSpawns[i % shuffledSpawns.length];
             startPositions[p.id] = {
                 x: spawn.x,
@@ -106,10 +189,11 @@ io.on("connection", (socket) => {
             roomId: currentRoom,
             players: shuffledPlayers,
             startPositions,
-            duration: room.duration
+            duration: room.duration,
+            mapData: mapData
         });
         
-        console.log(`Room ${currentRoom} started with ${players.length} players, duration: ${room.duration}s`);
+        console.log(`Room ${currentRoom} started with ${players.length} players, duration: ${room.duration}s, map: ${room.selectedMapId}`);
     });
 
     socket.on("returnLobby", () => {
@@ -151,7 +235,8 @@ io.on("connection", (socket) => {
                 }
                 io.to(currentRoom).emit("lobbyUpdate", {
                     players: room.players,
-                    duration: room.duration
+                    duration: room.duration,
+                    selectedMapId: room.selectedMapId
                 });
             }
         }

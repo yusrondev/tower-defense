@@ -1,0 +1,135 @@
+{
+  "name": "Square",
+  "width": 1600,
+  "height": 900,
+  "obstacles": [
+    {
+      "x": 0,
+      "y": -20,
+      "w": 1600,
+      "h": 20,
+      "color": "#444",
+      "type": "border"
+    },
+    {
+      "x": 0,
+      "y": 900,
+      "w": 1600,
+      "h": 20,
+      "color": "#444",
+      "type": "border"
+    },
+    {
+      "x": -20,
+      "y": 0,
+      "w": 20,
+      "h": 900,
+      "color": "#444",
+      "type": "border"
+    },
+    {
+      "x": 1600,
+      "y": 0,
+      "w": 20,
+      "h": 900,
+      "color": "#444",
+      "type": "border"
+    },
+    {
+      "x": 0,
+      "y": 660,
+      "w": 360,
+      "h": 20,
+      "angle": 0,
+      "color": "#444"
+    },
+    {
+      "x": 540,
+      "y": 660,
+      "w": 360,
+      "h": 20,
+      "angle": 0,
+      "color": "#444"
+    }
+  ],
+  "towers": [
+    {
+      "x": 180,
+      "y": 440,
+      "maxHp": 500,
+      "hp": 500,
+      "size": 80,
+      "label": "TOWER 1"
+    },
+    {
+      "x": 640,
+      "y": 440,
+      "maxHp": 500,
+      "hp": 500,
+      "size": 80,
+      "label": "TOWER 2"
+    },
+    {
+      "x": 420,
+      "y": 820,
+      "maxHp": 500,
+      "hp": 500,
+      "size": 80,
+      "label": "BASE"
+    }
+  ],
+  "waypoints": [
+    {
+      "x": 440,
+      "y": 120,
+      "type": "waypoint"
+    },
+    {
+      "x": 440,
+      "y": 440,
+      "type": "waypoint"
+    },
+    {
+      "x": 460,
+      "y": 720,
+      "type": "waypoint"
+    }
+  ],
+  "playerSpawns": [
+    {
+      "x": 360,
+      "y": 860,
+      "type": "spawn"
+    },
+    {
+      "x": 360,
+      "y": 800,
+      "type": "spawn"
+    },
+    {
+      "x": 400,
+      "y": 760,
+      "type": "spawn"
+    },
+    {
+      "x": 460,
+      "y": 760,
+      "type": "spawn"
+    },
+    {
+      "x": 520,
+      "y": 780,
+      "type": "spawn"
+    },
+    {
+      "x": 540,
+      "y": 820,
+      "type": "spawn"
+    },
+    {
+      "x": 540,
+      "y": 860,
+      "type": "spawn"
+    }
+  ]
+}
