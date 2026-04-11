@@ -173,7 +173,7 @@
       height: 100vh;
       display: flex;
       flex-direction: column;
-      justify-content: center;
+      justify-content: flex-start; /* FIX: Gunakan flex-start + margin auto untuk centering bergulir */
       align-items: center;
       z-index: 100;
       color: white;
@@ -224,9 +224,10 @@
       flex-direction: column;
       align-items: center;
       width: 90%;
-      max-width: 400px; /* Ukuran ideal */
+      max-width: 400px;
       animation: panelFadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-      flex-shrink: 0; /* Jangan biarkan panel mengecil */
+      flex-shrink: 0;
+      margin: auto 0; /* FIX: Centering bergulir (Centering jika muat, Scroll dari atas jika tidak) */
     }
 
     @keyframes panelFadeUp {
@@ -1232,11 +1233,11 @@
         margin-bottom: 15px;
       }
 
-      .role-card {
+      /* .role-card {
         width: 80px;
         height: 100px;
         padding: 8px;
-      }
+      } */
 
       .role-name {
         font-size: 10px;
