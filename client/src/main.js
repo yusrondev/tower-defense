@@ -9,6 +9,7 @@ const lobbyStatus = document.getElementById("lobby-status");
 const lobbyMenu = document.getElementById("lobby-menu");
 const gameContainer = document.getElementById("game-container");
 let selectedRole = "damager";
+let isMapLoading = false;
 
 function showToast(message, type = "info") {
   const container = document.getElementById("toast-container");
@@ -106,12 +107,14 @@ joinBtn.addEventListener("click", () => {
   document.getElementById("lobby-setup").style.display = "none";
   showToast("Menghubungkan ke Room...", "success");
   
-  // Fullscreen pancingan di interaksi pertama
+  // Fullscreen pancingan dihilangkan (request user: jangan langsung FS di lobby)
+  /*
   try {
     if (document.documentElement.requestFullscreen) {
       document.documentElement.requestFullscreen().catch(err => console.log("Lobby Fullscreen blocked:", err));
     }
   } catch (e) { }
+  */
 });
 
 const durationSelect = document.getElementById("battle-duration");
@@ -155,7 +158,12 @@ onLobbyUpdate(async ({ players, duration, selectedMapId }) => {
     await refreshMapList();
   }
   
-  if (selectedMapId) mapSelect.value = selectedMapId;
+  if (selectedMapId) {
+    // Pastikan valuenya benar-benar ada sebelum set (mencegah reset ke default jika telat)
+    if (Array.from(mapSelect.options).some(opt => opt.value === selectedMapId)) {
+      mapSelect.value = selectedMapId;
+    }
+  }
 
   // Cek apakah saya Host
   const me = players.find(p => p.id === getMyId());
@@ -236,26 +244,43 @@ onReturnToLobby(() => {
   
   // Karena kembali ke lobby, reset text game over
   showToast("Berhasil kembali ke Lobby!", "success");
+
+  // Exit Fullscreen dan Kembalikan ke Potrait (Lobby View)
+  try {
+    if (document.fullscreenElement && document.exitFullscreen) {
+      document.exitFullscreen().catch(() => {});
+    }
+    if (screen.orientation && screen.orientation.unlock) {
+      screen.orientation.unlock();
+      // Opsional: Coba paksa potrait jika didukung
+      if (screen.orientation.lock) {
+          screen.orientation.lock("portrait").catch(() => {});
+      }
+    }
+  } catch (e) {}
 });
 
 async function refreshMapList() {
+  if (isMapLoading) return;
+  
   const mapSelect = document.getElementById("map-select");
   if (!mapSelect) return;
 
+  isMapLoading = true;
   try {
+    // Show loading state
+    const oldValue = mapSelect.value;
+    mapSelect.innerHTML = '<option value="default">Loading maps...</option>';
+
     const res = await fetch("/api/maps");
-    if (!res.ok) return;
+    if (!res.ok) throw new Error("Server response not OK");
     
     const maps = await res.json();
     
-    // Simpan nilai lama agar tidak ter-reset jika tidak perlu
-    const oldValue = mapSelect.value;
-    
-    // Bersihkan kecuali Default (opsional, tapi lebih baik bersihkan semua dan tambah ulang)
+    // Clear and build list
     mapSelect.innerHTML = '<option value="default">Default Map</option>';
     
     maps.forEach(mapFile => {
-      // Hilangkan .json, ganti simbol jadi spasi, dan UPPERCASE
       const displayName = mapFile
         .replace(".json", "")
         .replace(/[-_]/g, " ")
@@ -267,17 +292,26 @@ async function refreshMapList() {
       mapSelect.appendChild(option);
     });
 
-    // Kembalikan nilai lama jika masih ada di list baru
+    // Restore old value if still valid
     const newOptions = Array.from(mapSelect.options).map(opt => opt.value);
     if (newOptions.includes(oldValue)) {
       mapSelect.value = oldValue;
     }
   } catch (e) {
-    console.error("Failed to refresh maps:", e);
+    console.warn("Failed to refresh maps:", e);
+    mapSelect.innerHTML = '<option value="default">Default Map (Failed to load list)</option>';
+  } finally {
+    isMapLoading = false;
   }
 }
 
-// 🔥 pastikan DOM sudah siap
+// Inisialisasi awal segera (Module execution)
+refreshMapList();
+
+// 🔥 pastikan DOM sudah siap (untuk pancingan tambahan jika diperlukan)
 window.onload = async () => {
-  await refreshMapList();
+  // refreshMapList() sudah dipanggil di level modul, tapi panggil lagi jika list masih kosong
+  if (document.getElementById("map-select")?.options.length <= 1) {
+    await refreshMapList();
+  }
 };
