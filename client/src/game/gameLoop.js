@@ -900,7 +900,53 @@ function updateLowHPEffect() {
     }
 }
 
+// Cache the segment elements so we don't query the DOM every frame
+let _hpSegments = null;
+let _enSegments = null;
+const TOTAL_SEGMENTS = 20;
+
+function updatePlayerBarsHUD() {
+    // Lazy-init: build segments once
+    if (!_hpSegments) {
+        const hpContainer = document.getElementById("hp-segments");
+        const enContainer = document.getElementById("en-segments");
+        if (!hpContainer || !enContainer) return;
+
+        for (let i = 0; i < TOTAL_SEGMENTS; i++) {
+            const hSeg = document.createElement("div");
+            hSeg.className = "hud-segment";
+            hpContainer.appendChild(hSeg);
+
+            const eSeg = document.createElement("div");
+            eSeg.className = "hud-segment";
+            enContainer.appendChild(eSeg);
+        }
+        _hpSegments = hpContainer.querySelectorAll(".hud-segment");
+        _enSegments = enContainer.querySelectorAll(".hud-segment");
+    }
+
+    const hpRatio = Math.max(0, player1.hp / player1.maxHp);
+    const enRatio = Math.max(0, player1.energy / player1.maxEnergy);
+    const hpActive = Math.round(hpRatio * TOTAL_SEGMENTS);
+    const enActive = Math.round(enRatio * TOTAL_SEGMENTS);
+    const isLowHp = hpRatio <= 0.2;
+
+    _hpSegments.forEach((seg, i) => {
+        seg.className = "hud-segment";
+        if (i < hpActive) {
+            seg.classList.add(isLowHp ? "hp-low" : "hp-on");
+        }
+    });
+
+    _enSegments.forEach((seg, i) => {
+        seg.className = "hud-segment";
+        if (i < enActive) seg.classList.add("en-on");
+    });
+}
+
 function updateUI() {
+    // 0. Player HP & Energy Bars
+    updatePlayerBarsHUD();
     // 1. Leaderboard (Top Left - Vertical)
     const leaderboardHud = document.getElementById("leaderboard-hud");
     if (leaderboardHud) {
@@ -1307,7 +1353,7 @@ function drawMinimap(ctx) {
     const totalWidth = maxX - minX;
     const totalHeight = maxY - minY;
 
-    const containerLimit = 150; 
+    const containerLimit = 100; 
     const scale = containerLimit / Math.max(totalWidth, totalHeight); 
     const mapSizeW = totalWidth * scale;
     const mapSizeH = totalHeight * scale;

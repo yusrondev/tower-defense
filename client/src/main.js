@@ -425,37 +425,34 @@ async function refreshMapList() {
   isMapLoading = true;
   try {
     // Show loading state
-    const oldValue = mapSelect.value;
-    mapSelect.innerHTML = '<option value="default">Loading maps...</option>';
+    mapSelect.innerHTML = '<option value="">Memuat maps...</option>';
 
     const res = await fetch("/api/maps");
     if (!res.ok) throw new Error("Server response not OK");
     
     const maps = await res.json();
     
-    // Clear and build list
-    mapSelect.innerHTML = '<option value="default">GALAXY</option>';
+    // Clear and build list from server maps only
+    mapSelect.innerHTML = '';
     
-    maps.forEach(mapFile => {
-      const displayName = mapFile
-        .replace(".json", "")
-        .replace(/[-_]/g, " ")
-        .toUpperCase();
+    if (maps.length === 0) {
+      mapSelect.innerHTML = '<option value="">Tidak ada map tersedia</option>';
+    } else {
+      maps.forEach(mapFile => {
+        const displayName = mapFile
+          .replace(".json", "")
+          .replace(/[-_]/g, " ")
+          .toUpperCase();
 
-      const option = document.createElement("option");
-      option.value = mapFile;
-      option.innerText = displayName;
-      mapSelect.appendChild(option);
-    });
-
-    // Restore old value if still valid
-    const newOptions = Array.from(mapSelect.options).map(opt => opt.value);
-    if (newOptions.includes(oldValue)) {
-      mapSelect.value = oldValue;
+        const option = document.createElement("option");
+        option.value = mapFile;
+        option.innerText = displayName;
+        mapSelect.appendChild(option);
+      });
     }
   } catch (e) {
     console.warn("Failed to refresh maps:", e);
-    mapSelect.innerHTML = '<option value="default">GALAXY (Failed to load list)</option>';
+    mapSelect.innerHTML = '<option value="">Gagal memuat map</option>';
   } finally {
     isMapLoading = false;
   }

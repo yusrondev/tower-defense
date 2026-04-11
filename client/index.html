@@ -1010,9 +1010,70 @@
       }
     }
 
+    /* Player HP & Energy Bar HUD */
+    #player-bars-hud {
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .hud-bar-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .hud-bar-label {
+      font-family: 'Outfit', sans-serif;
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      opacity: 0.7;
+      width: 14px;
+      text-align: right;
+    }
+
+    .hud-bar-segments {
+      display: flex;
+      gap: 2px;
+    }
+
+    .hud-segment {
+      width: 8px;
+      height: 10px;
+      border-radius: 2px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      transition: background 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .hud-segment.hp-on {
+      background: #2ecc71;
+      border-color: rgba(46, 204, 113, 0.5);
+      box-shadow: 0 0 4px rgba(46, 204, 113, 0.4);
+    }
+
+    .hud-segment.hp-low {
+      background: #e74c3c;
+      border-color: rgba(231, 76, 60, 0.5);
+      box-shadow: 0 0 4px rgba(231, 76, 60, 0.6);
+    }
+
+    .hud-segment.en-on {
+      background: #ffa502;
+      border-color: rgba(255, 165, 2, 0.5);
+      box-shadow: 0 0 4px rgba(255, 165, 2, 0.4);
+    }
+
     #stat-hud {
       position: absolute;
-      top: 52px;
+      top: 50px;
       left: 15px;
       background: rgba(0, 0, 0, 0.3);
       backdrop-filter: blur(6px);
@@ -1562,7 +1623,7 @@
         
         <label style="display:block; margin-top:15px; margin-bottom:10px; font-size:14px; opacity:0.8; text-align: center;">PILIH MAP</label>
         <select id="map-select" style="font-size: 16px; padding: 14px; text-align: center; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(0, 0, 0, 0.4); color: white; width: 100%; box-sizing: border-box; outline: none;">
-          <option value="default">GALAXY</option>
+          <option value="">Memuat maps...</option>
         </select>
       </div>
 
@@ -1652,6 +1713,18 @@
     <div id="teammate-down-banner"></div>
     <div id="ping-display">
       <div class="ping-dot"></div> LATENCY: <span id="ping-value">0</span>ms
+    </div>
+
+    <!-- Player HP & Energy Segmented Bars HUD -->
+    <div id="player-bars-hud">
+      <div class="hud-bar-row">
+        <span class="hud-bar-label" style="color:#2ecc71">HP</span>
+        <div class="hud-bar-segments" id="hp-segments"></div>
+      </div>
+      <div class="hud-bar-row">
+        <span class="hud-bar-label" style="color:#ffa502">EN</span>
+        <div class="hud-bar-segments" id="en-segments"></div>
+      </div>
     </div>
 
     <div id="stat-hud">
