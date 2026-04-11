@@ -210,6 +210,7 @@ onMatchFound((data) => {
   initGameConfig(duration, players, mapData);
 
   lobbyMenu.style.display = "none";
+  if (document.getElementById("lobby-bg")) document.getElementById("lobby-bg").style.display = "none";
   gameContainer.style.display = "block";
 
   // Attempt Fullscreen and Landscape lock
@@ -259,6 +260,7 @@ onReturnToLobby(() => {
   document.getElementById("game-over-overlay").style.display = "none";
   document.getElementById("game-container").style.display = "none";
   document.getElementById("lobby-menu").style.display = "flex";
+  if (document.getElementById("lobby-bg")) document.getElementById("lobby-bg").style.display = "block";
   
   // Karena kembali ke lobby, reset text game over
   showToast("Berhasil kembali ke Lobby!", "success");

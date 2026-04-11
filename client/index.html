@@ -5,6 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Tower Defense Arena</title>
+  <style>
     * {
       box-sizing: border-box;
       -webkit-tap-highlight-color: transparent;
@@ -170,22 +171,32 @@
       left: 0;
       width: 100vw;
       height: 100vh;
-      background: radial-gradient(circle at center, #0d0d1f 0%, #05050a 100%);
       display: flex;
       flex-direction: column;
-      justify-content: flex-start;
+      justify-content: center;
       align-items: center;
       z-index: 100;
       color: white;
       font-family: 'Outfit', sans-serif;
       overflow-y: auto;
-      overflow-x: hidden; /* FIX: Mencegah scroll ke kanan */
+      overflow-x: hidden;
       -webkit-overflow-scrolling: touch;
-      padding: 40px 0;
+      padding: 20px 0;
       touch-action: auto;
     }
 
-    #lobby-menu::before {
+    #lobby-bg {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: radial-gradient(circle at center, #0d0d1f 0%, #05050a 100%);
+      z-index: 5; /* FIX: Turunkan z-index agar tidak menutupi Game UI */
+      overflow: hidden;
+    }
+
+    #lobby-bg::before {
       content: "";
       position: absolute;
       top: -50%;
@@ -194,7 +205,6 @@
       height: 200%;
       background: radial-gradient(circle at center, rgba(0, 242, 254, 0.05) 0%, transparent 50%);
       animation: rotateBg 20s linear infinite;
-      z-index: -1;
     }
 
     @keyframes rotateBg {
@@ -1325,6 +1335,7 @@
 
 <body>
   <div id="toast-container"></div>
+  <div id="lobby-bg"></div>
   <div id="lobby-menu">
     <div class="lobby-panel">
       <h1>TOWER DEFENSE</h1>
