@@ -303,7 +303,7 @@ export function initGameConfig(duration, players, mapData) {
     towers.length = 0;
     if (mapData && mapData.towers && mapData.towers.length > 0) {
         mapData.towers.forEach(t => {
-            towers.push(new Tower(t.x, t.y, t.maxHp, t.size, t.label));
+            towers.push(new Tower(t.x, t.y, t.maxHp, t.size, t.label, t.texture));
         });
     } else {
         // Spread along the 1800px width

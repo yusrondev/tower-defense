@@ -12,13 +12,14 @@ const btnSelect = document.getElementById("tool-select");
 const btnDuplicate = document.getElementById("btn-duplicate");
 const btnWaypoint = document.getElementById("tool-waypoint");
 const btnSpawn = document.getElementById("tool-spawn");
+const btnShape = document.getElementById("tool-shape");
 const ctxMenu = document.getElementById("context-menu");
 const towerSequenceInfo = document.getElementById("tower-sequence-info");
 const propPane = document.getElementById("properties-pane");
 const wallAngleInput = document.getElementById("wall-angle");
 const mapListContainer = document.getElementById("map-list");
 
-let currentTool = "wall"; // "wall", "tower", "erase", "select", "waypoint", "spawn"
+let currentTool = "wall"; // "wall", "tower", "erase", "select", "waypoint", "spawn", "shape"
 let selectedItem = null;
 let draggingItem = null;
 let dragX = 0;
@@ -60,9 +61,71 @@ const outerImageInput = document.getElementById("outer-image-input");
 const outerPreviewCanvas = document.getElementById("outer-preview");
 const btnRemoveOuterBg = document.getElementById("btn-remove-outer-bg");
 
+// --- Border Background Handlers ---
+let borderBgImage = null;
+const borderImageInput = document.getElementById("border-image-input");
+const borderPreviewCanvas = document.getElementById("border-img-preview");
+const btnRemoveBorderBg = document.getElementById("btn-remove-border-img");
+
+function setGlobalBorderImage(dataUrl) {
+    borderBgImage = dataUrl;
+    
+    // Apply automatically to borders
+    obstacles.forEach(o => {
+        if (o.type === "border") {
+            o.texture = borderBgImage;
+            o._textureImg = null;
+            o._texturePat = null; // reset caches so draw() re-renders
+        }
+    });
+
+    if (dataUrl) {
+        const img = new Image();
+        img.onload = () => {
+            const pCtx = borderPreviewCanvas.getContext("2d");
+            pCtx.clearRect(0, 0, borderPreviewCanvas.width, borderPreviewCanvas.height);
+            pCtx.drawImage(img, 0, 0, borderPreviewCanvas.width, borderPreviewCanvas.height);
+            borderPreviewCanvas.style.display = "block";
+            btnRemoveBorderBg.style.display = "block";
+            draw();
+        };
+        img.src = dataUrl;
+    } else {
+        borderPreviewCanvas.style.display = "none";
+        btnRemoveBorderBg.style.display = "none";
+        borderPreviewCanvas.getContext("2d").clearRect(0, 0, borderPreviewCanvas.width, borderPreviewCanvas.height);
+        draw();
+    }
+}
+
+borderImageInput.addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => setGlobalBorderImage(ev.target.result);
+    reader.readAsDataURL(file);
+});
+
+btnRemoveBorderBg.addEventListener("click", () => {
+    borderImageInput.value = "";
+    setGlobalBorderImage(null);
+});
+
 function setOuterBgImage(dataUrl) {
     outerBgImage = dataUrl;
     outerBgImageObj = null;
+    
+    // Apply CSS to viewport for preview
+    const viewport = document.getElementById("editor-viewport");
+    if (viewport) {
+        if (outerBgImage) {
+            viewport.style.backgroundImage = `url(${outerBgImage})`;
+            viewport.style.backgroundRepeat = "repeat";
+        } else {
+            viewport.style.backgroundImage = "none";
+        }
+    }
+
     if (dataUrl) {
         const img = new Image();
         img.onload = () => {
@@ -85,6 +148,8 @@ function setOuterBgImage(dataUrl) {
 
 outerColorInput.addEventListener("input", (e) => {
     outerBgColor = e.target.value;
+    const viewport = document.getElementById("editor-viewport");
+    if (viewport) viewport.style.backgroundColor = outerBgColor;
     draw();
 });
 
@@ -161,6 +226,7 @@ btnTower.addEventListener("click", () => setTool("tower", btnTower));
 btnSelect.addEventListener("click", () => setTool("select", btnSelect));
 btnWaypoint.addEventListener("click", () => setTool("waypoint", btnWaypoint));
 btnSpawn.addEventListener("click", () => setTool("spawn", btnSpawn));
+btnShape.addEventListener("click", () => setTool("shape", btnShape));
 btnErase.addEventListener("click", () => setTool("erase", btnErase));
 
 const mapWidthInput = document.getElementById("map-width");
@@ -213,6 +279,7 @@ function setTool(tool, btn) {
     // Sync input if select tool and wall selected
     if (tool === "select" && selectedItem && !selectedItem.label && selectedItem.type !== "waypoint" && selectedItem.type !== "spawn") {
         wallAngleInput.value = selectedItem.angle || 0;
+        updateWallTextureUI();
     }
     
     // Clear selection when changing tool unless it's select
@@ -249,6 +316,187 @@ wallAngleInput.addEventListener("input", (e) => {
     }
 });
 
+// --- Wall Texture Handlers ---
+const wallTextureInput = document.getElementById("wall-texture-input");
+const wallTexturePreview = document.getElementById("wall-texture-preview");
+const btnRemoveWallTexture = document.getElementById("btn-remove-wall-texture");
+
+function updateWallTextureUI() {
+    if (selectedItem && selectedItem.texture) {
+        if (!selectedItem._textureImg) {
+            const img = new Image();
+            img.onload = () => {
+                selectedItem._textureImg = img;
+                renderWallTexturePreview(img);
+                draw();
+            };
+            img.src = selectedItem.texture;
+        } else {
+            renderWallTexturePreview(selectedItem._textureImg);
+        }
+        btnRemoveWallTexture.style.display = "block";
+    } else {
+        wallTexturePreview.style.display = "none";
+        btnRemoveWallTexture.style.display = "none";
+        wallTextureInput.value = "";
+    }
+}
+
+function renderWallTexturePreview(img) {
+    const pCtx = wallTexturePreview.getContext("2d");
+    pCtx.clearRect(0, 0, wallTexturePreview.width, wallTexturePreview.height);
+    pCtx.drawImage(img, 0, 0, wallTexturePreview.width, wallTexturePreview.height);
+    wallTexturePreview.style.display = "block";
+}
+
+wallTextureInput.addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (!file || !selectedItem || selectedItem.label || selectedItem.type === "waypoint" || selectedItem.type === "spawn") return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+        selectedItem.texture = ev.target.result;
+        selectedItem._textureImg = null; // force reload
+        selectedItem._texturePat = null; // force pattern recreation
+        updateWallTextureUI();
+    };
+    reader.readAsDataURL(file);
+});
+
+btnRemoveWallTexture.addEventListener("click", () => {
+    if (selectedItem) {
+        selectedItem.texture = null;
+        selectedItem._textureImg = null;
+        selectedItem._texturePat = null;
+        updateWallTextureUI();
+        draw();
+    }
+});
+
+// --- Tower Texture Handlers ---
+const towerTextureInput = document.getElementById("tower-texture-input");
+const towerTexturePreview = document.getElementById("tower-texture-preview");
+const btnRemoveTowerTexture = document.getElementById("btn-remove-tower-texture");
+
+function updateTowerTextureUI() {
+    if (selectedItem && selectedItem.texture) {
+        if (!selectedItem._textureImg || selectedItem._textureImg === "loading") {
+            const img = new Image();
+            img.onload = () => {
+                selectedItem._textureImg = img;
+                renderTowerTexturePreview(img);
+                draw();
+            };
+            img.src = selectedItem.texture;
+            selectedItem._textureImg = "loading";
+        } else if (selectedItem._textureImg !== "loading") {
+            renderTowerTexturePreview(selectedItem._textureImg);
+        }
+        btnRemoveTowerTexture.style.display = "block";
+    } else {
+        towerTexturePreview.style.display = "none";
+        btnRemoveTowerTexture.style.display = "none";
+        towerTextureInput.value = "";
+    }
+}
+
+function renderTowerTexturePreview(img) {
+    const pCtx = towerTexturePreview.getContext("2d");
+    pCtx.clearRect(0, 0, towerTexturePreview.width, towerTexturePreview.height);
+    pCtx.drawImage(img, 0, 0, towerTexturePreview.width, towerTexturePreview.height);
+    towerTexturePreview.style.display = "block";
+}
+
+towerTextureInput.addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (!file || !selectedItem || !selectedItem.label) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+        selectedItem.texture = ev.target.result;
+        selectedItem._textureImg = null; // force reload
+        updateTowerTextureUI();
+    };
+    reader.readAsDataURL(file);
+});
+
+btnRemoveTowerTexture.addEventListener("click", () => {
+    if (selectedItem) {
+        selectedItem.texture = null;
+        selectedItem._textureImg = null;
+        updateTowerTextureUI();
+        draw();
+    }
+});
+
+// --- Shape Property Handlers ---
+const shapeCollision = document.getElementById("shape-collision");
+const shapeColor = document.getElementById("shape-color");
+const shapeTextureInput = document.getElementById("shape-texture-input");
+const shapeTexturePreview = document.getElementById("shape-texture-preview");
+const btnRemoveShapeTexture = document.getElementById("btn-remove-shape-texture");
+
+function updateShapeTextureUI() {
+    if (selectedItem && selectedItem.texture) {
+        if (!selectedItem._textureImg || selectedItem._textureImg === "loading") {
+            const img = new Image();
+            img.onload = () => {
+                selectedItem._textureImg = img;
+                renderShapeTexturePreview(img);
+                draw();
+            };
+            img.src = selectedItem.texture;
+            selectedItem._textureImg = "loading";
+        } else if (selectedItem._textureImg !== "loading") {
+            renderShapeTexturePreview(selectedItem._textureImg);
+        }
+        btnRemoveShapeTexture.style.display = "block";
+    } else {
+        shapeTexturePreview.style.display = "none";
+        btnRemoveShapeTexture.style.display = "none";
+        shapeTextureInput.value = "";
+    }
+}
+
+function renderShapeTexturePreview(img) {
+    const pCtx = shapeTexturePreview.getContext("2d");
+    pCtx.clearRect(0, 0, shapeTexturePreview.width, shapeTexturePreview.height);
+    pCtx.drawImage(img, 0, 0, shapeTexturePreview.width, shapeTexturePreview.height);
+    shapeTexturePreview.style.display = "block";
+}
+
+shapeCollision.addEventListener("change", (e) => {
+    if (selectedItem && selectedItem.type === "shape") {
+        selectedItem.isCollision = e.target.checked;
+    }
+});
+
+shapeColor.addEventListener("input", (e) => {
+    if (selectedItem && selectedItem.type === "shape") {
+        selectedItem.color = e.target.value;
+        draw();
+    }
+});
+
+shapeTextureInput.addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (!file || !selectedItem || selectedItem.type !== "shape") return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+        selectedItem.texture = ev.target.result;
+        selectedItem._textureImg = null; 
+        updateShapeTextureUI();
+    };
+    reader.readAsDataURL(file);
+});
+
+btnRemoveShapeTexture.addEventListener("click", () => {
+    if (selectedItem && selectedItem.type === "shape") {
+        selectedItem.texture = null;
+        selectedItem._textureImg = null;
+        updateShapeTextureUI();
+        draw();
+    }
+});
+
 btnSave.addEventListener("click", async () => {
     if (towers.length !== 3) {
         alert("Anda harus memasang tepat 3 Tower sebelum menyimpan map.");
@@ -272,6 +520,18 @@ btnSave.addEventListener("click", async () => {
     const filename = `${formattedName}.json`;
 
     try {
+        // Clean obstacles before saving (remove runtime objects to avoid JSON errors)
+        const cleanObstacles = obstacles.map(obs => {
+            const { _textureImg, _texturePat, ...rest } = obs;
+            return rest;
+        });
+
+        // Clean towers
+        const cleanTowers = towers.map(t => {
+            const { _textureImg, ...rest } = t;
+            return rest;
+        });
+
         const mapData = {
             name: formattedName,
             width: mapWidth,
@@ -279,8 +539,9 @@ btnSave.addEventListener("click", async () => {
             bgImage: bgImage || null,
             outerBgColor: outerBgColor || "#000000",
             outerBgImage: outerBgImage || null,
-            obstacles: obstacles,
-            towers: towers,
+            borderBgImage: borderBgImage || null,
+            obstacles: cleanObstacles,
+            towers: cleanTowers,
             waypoints: waypoints,
             playerSpawns: playerSpawns
         };
@@ -388,7 +649,12 @@ async function loadMap(filename) {
         canvas.height = mapHeight;
 
         obstacles = data.obstacles || [];
+        // Sanitize corrupted properties from previously saved maps
+        obstacles.forEach(o => { delete o._textureImg; delete o._texturePat; });
+
         towers = data.towers || [];
+        towers.forEach(t => { delete t._textureImg; });
+        
         waypoints = data.waypoints || [];
         playerSpawns = data.playerSpawns || [];
         currentLoadedMap = filename;
@@ -401,14 +667,24 @@ async function loadMap(filename) {
         }
         
         // Load outer background
-        outerBgColor = data.outerBgColor || "#000000";
-        outerColorInput.value = outerBgColor;
-        
+        outerColorInput.value = data.outerBgColor || "#000000";
+        outerBgColor = outerColorInput.value;
+        const viewport = document.getElementById("editor-viewport");
+        if (viewport) viewport.style.backgroundColor = outerBgColor;
+
         if (data.outerBgImage) {
             setOuterBgImage(data.outerBgImage);
         } else {
             outerBgImage = null; outerBgImageObj = null;
             setOuterBgImage(null);
+        }
+
+        // Load border background image globally
+        if (data.borderBgImage) {
+            setGlobalBorderImage(data.borderBgImage);
+        } else {
+            borderImageInput.value = "";
+            setGlobalBorderImage(null);
         }
         
         loadMapList(); // Refresh active state
@@ -440,6 +716,9 @@ btnDuplicate.addEventListener("click", () => {
     if (!selectedItem || selectedItem.label || selectedItem.type === "waypoint" || selectedItem.type === "spawn") return;
     
     const newItem = { ...selectedItem, x: selectedItem.x + 20, y: selectedItem.y + 20 };
+    delete newItem._textureImg;
+    delete newItem._texturePat;
+    
     obstacles.push(newItem);
     selectedItem = newItem;
     draw();
@@ -474,8 +753,8 @@ function findItemAt(x, y) {
             return t;
         }
     }
-    // Check walls (skip borders)
-    for (let i = obstacles.length - 1; i >= 4; i--) {
+    // Check walls (including borders)
+    for (let i = obstacles.length - 1; i >= 0; i--) {
         const o = obstacles[i];
         const cx = o.x + o.w / 2;
         const cy = o.y + o.h / 2;
@@ -492,8 +771,8 @@ function findItemAt(x, y) {
 }
 
 canvas.addEventListener("mousedown", (e) => {
-    const pos = getMousePos(e);
-    if (currentTool === "wall") {
+    const pos = getMousePos(e, currentTool !== "shape");
+    if (currentTool === "wall" || currentTool === "shape") {
         isDrawing = true;
         startX = pos.x;
         startY = pos.y;
@@ -527,13 +806,14 @@ canvas.addEventListener("mousedown", (e) => {
         draw();
     } else if (currentTool === "select") {
         ctxMenu.style.display = "none";
-        const hit = findItemAt(pos.x, pos.y);
+        const rawPos = getMousePos(e, false);
+        const hit = findItemAt(rawPos.x, rawPos.y); 
         selectedItem = hit;
         if (hit) {
-            draggingItem = hit;
-            dragX = pos.x - hit.x;
-            dragY = pos.y - hit.y;
-            btnDuplicate.style.display = (hit.label || hit.type === "waypoint" || hit.type === "spawn") ? "none" : "block";
+            draggingItem = (hit.type === "border") ? null : hit;
+            dragX = rawPos.x - hit.x;
+            dragY = rawPos.y - hit.y;
+            btnDuplicate.style.display = (hit.label || hit.type === "waypoint" || hit.type === "spawn" || hit.type === "border") ? "none" : "block";
             
             // Show properties
             propPane.style.display = "block";
@@ -545,6 +825,7 @@ canvas.addEventListener("mousedown", (e) => {
                 updateTowerInfo();
                 document.getElementById("tower-hp").value = hit.maxHp;
                 document.getElementById("tower-size").value = hit.size;
+                updateTowerTextureUI();
             } else if (hit.type === "waypoint") {
                 // Waypoint
                 towerOptions.style.display = "none";
@@ -557,11 +838,23 @@ canvas.addEventListener("mousedown", (e) => {
                 document.getElementById("waypoint-options").style.display = "none";
                 document.getElementById("wall-options").style.display = "none";
             } else {
-                // Wall
+                // Wall, Border, or Shape
                 towerOptions.style.display = "none";
                 document.getElementById("waypoint-options").style.display = "none";
-                document.getElementById("wall-options").style.display = "block";
-                wallAngleInput.value = hit.angle || 0;
+                
+                if (hit.type === "shape") {
+                    document.getElementById("wall-options").style.display = "none";
+                    document.getElementById("shape-options").style.display = "block";
+                    shapeCollision.checked = hit.isCollision !== false;
+                    shapeColor.value = hit.color || "#444444";
+                    updateShapeTextureUI();
+                } else {
+                    document.getElementById("wall-options").style.display = "block";
+                    document.getElementById("shape-options").style.display = "none";
+                    wallAngleInput.value = hit.angle || 0;
+                    wallAngleInput.disabled = (hit.type === "border");
+                    updateWallTextureUI();
+                }
             }
         } else {
             btnDuplicate.style.display = "none";
@@ -575,14 +868,15 @@ canvas.addEventListener("mousedown", (e) => {
 });
 
 canvas.addEventListener("mousemove", (e) => {
-    const pos = getMousePos(e);
-    if (isDrawing && currentTool === "wall") {
+    const pos = getMousePos(e, currentTool !== "shape");
+    if (isDrawing && (currentTool === "wall" || currentTool === "shape")) {
         currentX = pos.x;
         currentY = pos.y;
         draw();
     } else if (draggingItem && currentTool === "select") {
-        draggingItem.x = pos.x - dragX;
-        draggingItem.y = pos.y - dragY;
+        const rawPos = getMousePos(e, false);
+        draggingItem.x = Math.round((rawPos.x - dragX) / 10) * 10;
+        draggingItem.y = Math.round((rawPos.y - dragY) / 10) * 10;
         draw();
     } else if (currentTool === "erase" && e.buttons === 1) { // drag erase
         eraseAt(pos.x, pos.y);
@@ -594,7 +888,7 @@ canvas.addEventListener("mouseup", (e) => {
     isDrawing = false;
     draggingItem = null;
     
-    if (currentTool === "wall") {
+    if (currentTool === "wall" || currentTool === "shape") {
         const w = currentX - startX;
         const h = currentY - startY;
         
@@ -605,10 +899,19 @@ canvas.addEventListener("mouseup", (e) => {
         
         if (ow === 0 || oh === 0) return;
 
-        const angleInput = document.getElementById("wall-angle");
-        const angle = angleInput ? (parseFloat(angleInput.value) || 0) : 0;
-
-        obstacles.push({ x: ox, y: oy, w: ow, h: oh, angle: angle, color: "#444" });
+        if (currentTool === "wall") {
+            const angleInput = document.getElementById("wall-angle");
+            const angle = angleInput ? (parseFloat(angleInput.value) || 0) : 0;
+            obstacles.push({ x: ox, y: oy, w: ow, h: oh, angle: angle, color: "#444" });
+        } else {
+            // Shape
+            obstacles.push({ 
+                type: "shape", 
+                x: ox, y: oy, w: ow, h: oh, 
+                color: shapeColor.value || "#444444", 
+                isCollision: shapeCollision.checked 
+            });
+        }
         draw();
     }
 });
@@ -671,6 +974,20 @@ function eraseAt(x, y) {
     }
 }
 
+// Arrow Key Nudge Logic for selected items
+document.addEventListener("keydown", (e) => {
+    if (currentTool === "select" && selectedItem && !selectedItem.label && selectedItem.type !== "waypoint" && selectedItem.type !== "spawn" && selectedItem.type !== "border") {
+        if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
+            e.preventDefault(); // cegah scroll halaman
+            if (e.key === "ArrowUp") selectedItem.y -= 10;
+            if (e.key === "ArrowDown") selectedItem.y += 10;
+            if (e.key === "ArrowLeft") selectedItem.x -= 10;
+            if (e.key === "ArrowRight") selectedItem.x += 10;
+            draw();
+        }
+    }
+});
+
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -692,8 +1009,14 @@ function draw() {
         ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
     }
 
-    // Draw Obstacles
-    obstacles.forEach(obs => {
+    // Draw Obstacles (Sort: Shapes first to be on bottom layer)
+    const sortedObstacles = [...obstacles].sort((a, b) => {
+        if (a.type === "shape" && b.type !== "shape") return -1;
+        if (a.type !== "shape" && b.type === "shape") return 1;
+        return 0;
+    });
+
+    sortedObstacles.forEach(obs => {
         ctx.save();
         const angleRad = (obs.angle || 0) * Math.PI / 180;
         const cx = obs.x + obs.w/2;
@@ -702,35 +1025,65 @@ function draw() {
         ctx.translate(cx, cy);
         ctx.rotate(angleRad);
         
-        ctx.fillStyle = obs.color || "#444";
-        ctx.fillRect(-obs.w/2, -obs.h/2, obs.w, obs.h);
+        if (obs.texture) {
+            if (obs._textureImg && obs._textureImg.complete && obs._textureImg !== "loading") {
+                if (obs.type === "shape") {
+                    // Stretched texture for shapes
+                    ctx.drawImage(obs._textureImg, -obs.w/2, -obs.h/2, obs.w, obs.h);
+                } else {
+                    // Tiled texture for walls
+                    if (!obs._texturePat) {
+                        const offCanvas = document.createElement("canvas");
+                        offCanvas.width = 20; 
+                        offCanvas.height = 20;
+                        const oCtx = offCanvas.getContext("2d");
+                        oCtx.drawImage(obs._textureImg, 0, 0, 20, 20);
+                        obs._texturePat = ctx.createPattern(offCanvas, 'repeat');
+                    }
+                    ctx.fillStyle = obs._texturePat;
+                    ctx.save();
+                    ctx.translate(-obs.w/2, -obs.h/2);
+                    ctx.fillRect(0, 0, obs.w, obs.h);
+                    ctx.restore();
+                }
+            } else if (!obs._textureImg) {
+                const img = new Image();
+                img.onload = () => { obs._textureImg = img; draw(); };
+                img.src = obs.texture;
+                obs._textureImg = "loading";
+            }
+        } else {
+            ctx.fillStyle = obs.color || (obs.type === "shape" ? "#444444" : "#444");
+            ctx.fillRect(-obs.w/2, -obs.h/2, obs.w, obs.h);
+        }
         
         // Highlight selection
         if (selectedItem === obs) {
             ctx.strokeStyle = "yellow";
             ctx.lineWidth = 4;
-        } else {
+            ctx.strokeRect(-obs.w/2, -obs.h/2, obs.w, obs.h);
+        } else if (!obs.texture && obs.type !== "border" && obs.type !== "shape") {
             ctx.strokeStyle = "cyan";
             ctx.lineWidth = 2;
+            ctx.strokeRect(-obs.w/2, -obs.h/2, obs.w, obs.h);
         }
-        ctx.strokeRect(-obs.w/2, -obs.h/2, obs.w, obs.h);
         
         ctx.restore();
     });
 
     // Draw active drawing shape
-    if (isDrawing && currentTool === "wall") {
+    if (isDrawing && (currentTool === "wall" || currentTool === "shape")) {
         let w = currentX - startX;
         let h = currentY - startY;
         let x = w < 0 ? currentX : startX;
         let y = h < 0 ? currentY : startY;
         w = Math.abs(w);
         h = Math.abs(h);
-        if (w === 0) w = SNAP_GRID;
-        if (h === 0) h = SNAP_GRID;
+        if (w === 0 && currentTool === "wall") w = SNAP_GRID;
+        if (h === 0 && currentTool === "wall") h = SNAP_GRID;
         
         const angleInput = document.getElementById("wall-angle");
-        const angle = angleInput ? (parseFloat(angleInput.value) || 0) : 0;
+        const angle = (currentTool === "wall" && angleInput) ? (parseFloat(angleInput.value) || 0) : 0;
         const angleRad = angle * Math.PI / 180;
         const cx = x + w/2;
         const cy = y + h/2;
@@ -739,10 +1092,18 @@ function draw() {
         ctx.translate(cx, cy);
         ctx.rotate(angleRad);
         
-        ctx.fillStyle = "rgba(0, 255, 255, 0.3)";
-        ctx.fillRect(-w/2, -h/2, w, h);
-        ctx.strokeStyle = "rgba(0, 255, 255, 0.8)";
-        ctx.strokeRect(-w/2, -h/2, w, h);
+        if (currentTool === "wall") {
+            ctx.fillStyle = "rgba(0, 255, 255, 0.3)";
+            ctx.fillRect(-w/2, -h/2, w, h);
+            ctx.strokeStyle = "rgba(0, 255, 255, 0.8)";
+            ctx.strokeRect(-w/2, -h/2, w, h);
+        } else {
+            ctx.fillStyle = "rgba(255, 255, 0, 0.2)";
+            ctx.fillRect(-w/2, -h/2, w, h);
+            ctx.strokeStyle = "rgba(255, 255, 0, 0.6)";
+            ctx.setLineDash([5, 5]);
+            ctx.strokeRect(-w/2, -h/2, w, h);
+        }
         
         ctx.restore();
     }
@@ -751,8 +1112,8 @@ function draw() {
     towers.forEach(t => {
         const tx = t.x;
         const ty = t.y;
-        
-        // Highlight selection
+
+        // Selection indicator
         if (selectedItem === t) {
             ctx.save();
             ctx.strokeStyle = "yellow";
@@ -761,25 +1122,36 @@ function draw() {
             ctx.restore();
         }
 
-        // Base shadow
-        ctx.fillStyle = "rgba(0,0,0,0.5)";
-        ctx.beginPath();
-        ctx.ellipse(tx + t.size / 2, ty + t.size + 5, t.size / 1.5, t.size / 4, 0, 0, Math.PI * 2);
-        ctx.fill();
+        if (t.texture) {
+            if (t._textureImg && t._textureImg.complete && t._textureImg !== "loading") {
+                ctx.drawImage(t._textureImg, tx, ty, t.size, t.size);
+            } else if (!t._textureImg) {
+                const img = new Image();
+                img.onload = () => { t._textureImg = img; draw(); };
+                img.src = t.texture;
+                t._textureImg = "loading";
+            }
+        } else {
+            // Base shadow
+            ctx.fillStyle = "rgba(0,0,0,0.5)";
+            ctx.beginPath();
+            ctx.ellipse(tx + t.size / 2, ty + t.size + 5, t.size / 1.5, t.size / 4, 0, 0, Math.PI * 2);
+            ctx.fill();
 
-        // Tower Body
-        ctx.fillStyle = "#34495e";
-        ctx.beginPath();
-        ctx.moveTo(tx + t.size * 0.2, ty + t.size);
-        ctx.lineTo(tx + t.size * 0.8, ty + t.size);
-        ctx.lineTo(tx + t.size, ty + t.size * 0.2);
-        ctx.lineTo(tx + t.size / 2, ty);
-        ctx.lineTo(tx, ty + t.size * 0.2);
-        ctx.closePath();
-        ctx.fill();
+            // Tower Body
+            ctx.fillStyle = "#34495e";
+            ctx.beginPath();
+            ctx.moveTo(tx + t.size * 0.2, ty + t.size);
+            ctx.lineTo(tx + t.size * 0.8, ty + t.size);
+            ctx.lineTo(tx + t.size, ty + t.size * 0.2);
+            ctx.lineTo(tx + t.size / 2, ty);
+            ctx.lineTo(tx, ty + t.size * 0.2);
+            ctx.closePath();
+            ctx.fill();
 
-        ctx.strokeStyle = "cyan";
-        ctx.stroke();
+            ctx.strokeStyle = "cyan";
+            ctx.stroke();
+        }
 
         ctx.fillStyle = "white";
         ctx.font = "bold 12px Arial";

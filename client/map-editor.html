@@ -252,6 +252,7 @@
 
     <div class="header-group">
       <button id="tool-wall" class="active-tool">🧱 Wall</button>
+      <button id="tool-shape">📦 Shape</button>
       <button id="tool-tower">🗼 Tower</button>
       <button id="tool-waypoint">📍 Path</button>
       <button id="tool-spawn">🏁 Spawn</button>
@@ -311,7 +312,15 @@
           </div>
           <div style="font-size:10px; color:#555; margin-top:4px;">Gambar akan menutupi warna. Kosongkan untuk pakai warna saja.</div>
         </div>
-        <div style="font-size: 10px; color: #666; margin-top: 5px;">* Border walls will auto-adjust</div>
+        <div class="prop-group" style="margin-top:14px;">
+          <label style="color:#aaa;">Map Border Texture</label>
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <input type="file" id="border-image-input" accept="image/*" style="font-size:11px; color:#ccc; background:transparent; border:none; padding:0; cursor:pointer;">
+            <canvas id="border-img-preview" width="210" height="30" style="border-radius:4px; border:1px solid #3c3c3c; display:none; object-fit:cover;"></canvas>
+            <button id="btn-remove-border-img" style="display:none; background:#8b2b2b; font-size:11px; padding:4px 8px;">🗑 Remove Border</button>
+          </div>
+          <div style="font-size:10px; color:#555; margin-top:4px;">Mengubah tekstur keempat sisi kotak pembatas map (tiling). Outline neon akan otomatis hilang.</div>
+        </div>
       </div>
     </div>
 
@@ -335,6 +344,38 @@
             <label>Rotation Angle (°)</label>
             <input type="number" id="wall-angle" value="0" step="15" style="width:100%;">
           </div>
+          <div class="prop-group" style="margin-top:14px;">
+            <label style="color:#aaa;">Wall Texture (Tiling)</label>
+            <div style="display:flex; flex-direction:column; gap:6px;">
+              <input type="file" id="wall-texture-input" accept="image/*" style="font-size:11px; color:#ccc; background:transparent; border:none; padding:0; cursor:pointer;">
+              <canvas id="wall-texture-preview" width="50" height="50" style="border-radius:4px; border:1px solid #3c3c3c; display:none; object-fit:cover;"></canvas>
+              <button id="btn-remove-wall-texture" style="display:none; background:#8b2b2b; font-size:11px; padding:4px 8px;">🗑 Remove Texture</button>
+            </div>
+            <div style="font-size:10px; color:#555; margin-top:4px;">Akan di-repeat (tile) ke seluruh kotak collision. Border akan hilang.</div>
+          </div>
+        </div>
+
+        <div id="shape-options" style="display:none;">
+          <div class="prop-group">
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:#fff;">
+              <input type="checkbox" id="shape-collision" checked style="width:16px; height:16px;">
+              Enable Collision
+            </label>
+            <div style="font-size:10px; color:#555; margin-top:4px;">Jika dimatikan, pemain & minion bisa melewatinya.</div>
+          </div>
+          <div class="prop-group">
+            <label>Shape Color</label>
+            <input type="color" id="shape-color" value="#444444" style="width:100%; height:30px; border:none; background:none; cursor:pointer;">
+          </div>
+          <div class="prop-group" style="margin-top:14px;">
+            <label style="color:#aaa;">Shape Asset (Stretched)</label>
+            <div style="display:flex; flex-direction:column; gap:6px;">
+              <input type="file" id="shape-texture-input" accept="image/*" style="font-size:11px; color:#ccc; background:transparent; border:none; padding:0; cursor:pointer;">
+              <canvas id="shape-texture-preview" width="50" height="50" style="border-radius:4px; border:1px solid #3c3c3c; display:none; object-fit:cover;"></canvas>
+              <button id="btn-remove-shape-texture" style="display:none; background:#8b2b2b; font-size:11px; padding:4px 8px;">🗑 Remove Asset</button>
+            </div>
+            <div style="font-size:10px; color:#555; margin-top:4px;">Gambar akan ditarik (stretch) menutupi seluruh area shape.</div>
+          </div>
         </div>
 
         <div id="tower-options" style="display:none;">
@@ -349,6 +390,15 @@
           <div class="prop-group">
             <label>Tower Size (PX)</label>
             <input type="number" id="tower-size" value="80" style="width:100%;">
+          </div>
+          <div class="prop-group" style="margin-top:14px;">
+            <label style="color:#aaa;">Tower Texture (Asset)</label>
+            <div style="display:flex; flex-direction:column; gap:6px;">
+              <input type="file" id="tower-texture-input" accept="image/*" style="font-size:11px; color:#ccc; background:transparent; border:none; padding:0; cursor:pointer;">
+              <canvas id="tower-texture-preview" width="50" height="50" style="border-radius:4px; border:1px solid #3c3c3c; display:none; object-fit:cover;"></canvas>
+              <button id="btn-remove-tower-texture" style="display:none; background:#8b2b2b; font-size:11px; padding:4px 8px;">🗑 Remove Texture</button>
+            </div>
+            <div style="font-size:10px; color:#555; margin-top:4px;">Menggantikan visual neon tiang kristal bawaan.</div>
           </div>
         </div>
 

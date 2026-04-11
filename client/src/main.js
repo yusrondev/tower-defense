@@ -178,17 +178,28 @@ onLobbyUpdate(async ({ players, duration, selectedMapId }) => {
     await refreshMapList();
   }
   
-  if (selectedMapId) {
-    // Pastikan valuenya benar-benar ada sebelum set (mencegah reset ke default jika telat)
-    if (Array.from(mapSelect.options).some(opt => opt.value === selectedMapId)) {
-      mapSelect.value = selectedMapId;
-      updateMapPreview(selectedMapId);
-    }
-  }
-
   // Cek apakah saya Host
   const me = players.find(p => p.id === getMyId());
-  if (me && me.isHost) {
+  const isHost = me && me.isHost;
+
+  if (selectedMapId && Array.from(mapSelect.options).some(opt => opt.value === selectedMapId)) {
+    // Memang map valid dari server
+    mapSelect.value = selectedMapId;
+    updateMapPreview(selectedMapId);
+  } else if (isHost) {
+    // Jika server memberi map 'default'/tidak valid dan kita adalah host, 
+    // paksa sinkronisasi map pertama kita ke server!
+    if (mapSelect.options.length > 0) {
+      if (!mapSelect.value) mapSelect.selectedIndex = 0;
+      updateSettings(durationSelect.value, mapSelect.value);
+      updateMapPreview(mapSelect.value);
+    }
+  } else if (!isHost) {
+      // Client waiting for host to pick map
+      updateMapPreview(null);
+  }
+
+  if (isHost) {
     startBtn.style.display = "inline-block";
     hostSettings.style.display = "block";
   } else {
@@ -449,6 +460,12 @@ async function refreshMapList() {
         option.innerText = displayName;
         mapSelect.appendChild(option);
       });
+      
+      // Auto-select first map and trigger preview/sync
+      if (!mapSelect.value && maps.length > 0) {
+        mapSelect.selectedIndex = 0;
+        mapSelect.dispatchEvent(new Event("change"));
+      }
     }
   } catch (e) {
     console.warn("Failed to refresh maps:", e);

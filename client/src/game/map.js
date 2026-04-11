@@ -12,6 +12,9 @@ export let arenaHeight = 900;
 export function setMapData(data) {
     if (data && data.obstacles) {
         obstacles = data.obstacles;
+        // Sanitize corrupted properties from previously saved maps
+        obstacles.forEach(o => { delete o._textureImg; delete o._texturePat; });
+        
         arenaWidth = data.width || 1800;
         arenaHeight = data.height || 900;
     } else {
@@ -83,6 +86,8 @@ export function checkObstacleCollision(rect) {
     const rectAxes = getAxes(rectVertices);
 
     for (let obs of obstacles) {
+        if (obs.isCollision === false) continue; // Skip non-colliding shapes
+        
         // Optimization: Fast AABB check if not rotated
         if (!obs.angle) {
             if (
@@ -169,7 +174,14 @@ export function getRandomSafePosition(size) {
 }
 
 export function drawObstacles(ctx) {
-    obstacles.forEach(obs => {
+    // Sort: Shapes first (bottom layer)
+    const sorted = [...obstacles].sort((a, b) => {
+        if (a.type === "shape" && b.type !== "shape") return -1;
+        if (a.type !== "shape" && b.type === "shape") return 1;
+        return 0;
+    });
+
+    sorted.forEach(obs => {
         ctx.save();
         
         const angle = (obs.angle || 0) * Math.PI / 180;
@@ -179,22 +191,66 @@ export function drawObstacles(ctx) {
         ctx.translate(cx, cy);
         ctx.rotate(angle);
 
-        // Neon Glow / Shadow
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = "rgba(0, 255, 255, 0.4)";
-        
-        // Body (Dark Crystal)
-        const grad = ctx.createLinearGradient(-obs.w/2, -obs.h/2, obs.w/2, obs.h/2);
-        grad.addColorStop(0, "#0a0a0a");
-        grad.addColorStop(1, "#1a1a2a");
-        
-        ctx.fillStyle = grad;
-        ctx.fillRect(-obs.w/2, -obs.h/2, obs.w, obs.h);
-        
-        // Neon Border
-        ctx.strokeStyle = "rgba(0, 255, 255, 0.8)";
-        ctx.lineWidth = 2;
-        ctx.strokeRect(-obs.w/2, -obs.h/2, obs.w, obs.h);
+        if (obs.texture) {
+            if (obs._textureImg && obs._textureImg.complete) {
+                if (obs.type === "shape") {
+                    // Stretched asset for shapes
+                    ctx.drawImage(obs._textureImg, -obs.w/2, -obs.h/2, obs.w, obs.h);
+                } else {
+                    if (!obs._texturePat) {
+                        // Resize image to 20x20 to match game grid size once
+                        const offCanvas = document.createElement("canvas");
+                        offCanvas.width = 20; 
+                        offCanvas.height = 20;
+                        const oCtx = offCanvas.getContext("2d");
+                        oCtx.drawImage(obs._textureImg, 0, 0, 20, 20);
+                        obs._texturePat = ctx.createPattern(offCanvas, 'repeat');
+                    }
+
+                    ctx.fillStyle = obs._texturePat;
+                    
+                    // Align pattern to top-left of the rect
+                    ctx.save();
+                    ctx.translate(-obs.w/2, -obs.h/2);
+                    ctx.fillRect(0, 0, obs.w, obs.h);
+                    ctx.restore();
+                }
+            } else if (!obs._textureImg) {
+                const img = new Image();
+                img.onload = () => { obs._textureImg = img; };
+                img.src = obs.texture;
+                obs._textureImg = "loading";
+            }
+        } else {
+            // Neon Glow / Shadow (only for internal walls)
+            if (obs.type !== "border") {
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = "rgba(0, 255, 255, 0.4)";
+                
+                // Body (Dark Crystal)
+                const grad = ctx.createLinearGradient(-obs.w/2, -obs.h/2, obs.w/2, obs.h/2);
+                grad.addColorStop(0, "#0a0a0a");
+                grad.addColorStop(1, "#1a1a2a");
+                
+                ctx.fillStyle = grad;
+                ctx.fillRect(-obs.w/2, -obs.h/2, obs.w, obs.h);
+                
+                // Neon Border
+                ctx.strokeStyle = "rgba(0, 255, 255, 0.8)";
+                ctx.lineWidth = 2;
+                ctx.strokeRect(-obs.w/2, -obs.h/2, obs.w, obs.h);
+            } else if (obs.type === "shape") {
+                // Flat color for shapes
+                ctx.fillStyle = obs.color || "#444444";
+                ctx.fillRect(-obs.w/2, -obs.h/2, obs.w, obs.h);
+            } else {
+                // Border walls without textures aren't explicitly drawn as neon barriers 
+                // in the original game loop (they are usually invisible collision or have a faint styling).
+                // Let's just draw a faint subtle border or nothing.
+                ctx.fillStyle = "rgba(255,255,255,0.05)";
+                ctx.fillRect(-obs.w/2, -obs.h/2, obs.w, obs.h);
+            }
+        }
 
         ctx.restore();
     });

@@ -1,15 +1,23 @@
 export class Tower {
-    constructor(x, y, maxHp, size, label) {
+    constructor(x, y, maxHp, size, label, texture = null) {
         this.x = x;
         this.y = y;
         this.hp = maxHp;
         this.maxHp = maxHp;
         this.size = size;
         this.label = label;
+        this.texture = texture;
+        this._textureImg = null;
         this.isAlive = true;
         this.destroyed = false;
         this.opacity = 1.0;
         this.fallOffset = 0;
+
+        if (this.texture) {
+            const img = new Image();
+            img.onload = () => { this._textureImg = img; };
+            img.src = this.texture;
+        }
     }
 
     update() {
@@ -36,41 +44,46 @@ export class Tower {
         ctx.save();
         ctx.globalAlpha = this.opacity;
 
-        // Shadow (Stay on ground)
-        ctx.fillStyle = "rgba(0,0,0,0.3)";
-        ctx.beginPath();
-        ctx.ellipse(this.x + this.size / 2, this.y + this.size + 5, this.size / 1.5, this.size / 4, 0, 0, Math.PI * 2);
-        ctx.fill();
+        if (this._textureImg && this._textureImg.complete) {
+            // Draw custom texture
+            ctx.drawImage(this._textureImg, this.x, towerY, this.size, this.size);
+        } else {
+            // Shadow (Stay on ground)
+            ctx.fillStyle = "rgba(0,0,0,0.3)";
+            ctx.beginPath();
+            ctx.ellipse(this.x + this.size / 2, this.y + this.size + 5, this.size / 1.5, this.size / 4, 0, 0, Math.PI * 2);
+            ctx.fill();
 
-        // Tower Body (Crystal/Pillar look)
-        const grad = ctx.createLinearGradient(this.x, towerY, this.x + this.size, towerY + this.size);
-        grad.addColorStop(0, "#2c3e50");
-        grad.addColorStop(0.5, "#34495e");
-        grad.addColorStop(1, "#1a1a1a");
+            // Tower Body (Crystal/Pillar look)
+            const grad = ctx.createLinearGradient(this.x, towerY, this.x + this.size, towerY + this.size);
+            grad.addColorStop(0, "#2c3e50");
+            grad.addColorStop(0.5, "#34495e");
+            grad.addColorStop(1, "#1a1a1a");
 
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.moveTo(this.x + this.size * 0.2, towerY + this.size);
-        ctx.lineTo(this.x + this.size * 0.8, towerY + this.size);
-        ctx.lineTo(this.x + this.size, towerY + this.size * 0.2);
-        ctx.lineTo(cx, towerY);
-        ctx.lineTo(this.x, towerY + this.size * 0.2);
-        ctx.closePath();
-        ctx.fill();
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.moveTo(this.x + this.size * 0.2, towerY + this.size);
+            ctx.lineTo(this.x + this.size * 0.8, towerY + this.size);
+            ctx.lineTo(this.x + this.size, towerY + this.size * 0.2);
+            ctx.lineTo(cx, towerY);
+            ctx.lineTo(this.x, towerY + this.size * 0.2);
+            ctx.closePath();
+            ctx.fill();
 
-        // Neon Glow (Cyan)
-        ctx.strokeStyle = "rgba(0, 255, 255, 0.8)";
-        ctx.lineWidth = 2;
-        ctx.stroke();
+            // Neon Glow (Cyan)
+            ctx.strokeStyle = "rgba(0, 255, 255, 0.8)";
+            ctx.lineWidth = 2;
+            ctx.stroke();
 
-        // Top Crystal
-        ctx.fillStyle = "cyan";
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = "cyan";
-        ctx.beginPath();
-        ctx.arc(cx, towerY + this.size * 0.2, this.size * 0.15, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.shadowBlur = 0;
+            // Top Crystal
+            ctx.fillStyle = "cyan";
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = "cyan";
+            ctx.beginPath();
+            ctx.arc(cx, towerY + this.size * 0.2, this.size * 0.15, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        }
 
         // Label & HP Bar (Only if not destroyed)
         if (!this.destroyed) {
