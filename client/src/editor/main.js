@@ -41,6 +41,107 @@ initBorders();
 let towers = [];
 let waypoints = []; // [{x, y}]
 let playerSpawns = []; // [{x, y}]
+let bgImage = null;     // base64 data URL string
+let bgImageObj = null;  // HTMLImageElement cached
+
+// --- Outer Background (outside arena) ---
+let outerBgColor = "#000000";
+let outerBgImage = null;
+let outerBgImageObj = null;
+
+// --- Background Image Upload Handlers ---
+const bgInput = document.getElementById("bg-image-input");
+const bgPreviewCanvas = document.getElementById("bg-preview");
+const btnRemoveBg = document.getElementById("btn-remove-bg");
+
+// --- Outer Background Handlers ---
+const outerColorInput = document.getElementById("outer-color-input");
+const outerImageInput = document.getElementById("outer-image-input");
+const outerPreviewCanvas = document.getElementById("outer-preview");
+const btnRemoveOuterBg = document.getElementById("btn-remove-outer-bg");
+
+function setOuterBgImage(dataUrl) {
+    outerBgImage = dataUrl;
+    outerBgImageObj = null;
+    if (dataUrl) {
+        const img = new Image();
+        img.onload = () => {
+            outerBgImageObj = img;
+            const pCtx = outerPreviewCanvas.getContext("2d");
+            pCtx.clearRect(0, 0, outerPreviewCanvas.width, outerPreviewCanvas.height);
+            pCtx.drawImage(img, 0, 0, outerPreviewCanvas.width, outerPreviewCanvas.height);
+            outerPreviewCanvas.style.display = "block";
+            btnRemoveOuterBg.style.display = "block";
+            draw();
+        };
+        img.src = dataUrl;
+    } else {
+        outerPreviewCanvas.style.display = "none";
+        btnRemoveOuterBg.style.display = "none";
+        outerPreviewCanvas.getContext("2d").clearRect(0, 0, outerPreviewCanvas.width, outerPreviewCanvas.height);
+        draw();
+    }
+}
+
+outerColorInput.addEventListener("input", (e) => {
+    outerBgColor = e.target.value;
+    draw();
+});
+
+outerImageInput.addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => setOuterBgImage(ev.target.result);
+    reader.readAsDataURL(file);
+});
+
+btnRemoveOuterBg.addEventListener("click", () => {
+    outerBgImage = null;
+    outerBgImageObj = null;
+    outerImageInput.value = "";
+    setOuterBgImage(null);
+});
+
+function setBgImage(dataUrl) {
+    bgImage = dataUrl;
+    bgImageObj = null;
+    if (dataUrl) {
+        const img = new Image();
+        img.onload = () => { bgImageObj = img; draw(); };
+        img.src = dataUrl;
+        // Show preview
+        const pCtx = bgPreviewCanvas.getContext("2d");
+        img.onload = () => {
+            bgImageObj = img;
+            pCtx.clearRect(0, 0, bgPreviewCanvas.width, bgPreviewCanvas.height);
+            pCtx.drawImage(img, 0, 0, bgPreviewCanvas.width, bgPreviewCanvas.height);
+            bgPreviewCanvas.style.display = "block";
+            btnRemoveBg.style.display = "block";
+            draw();
+        };
+    } else {
+        bgPreviewCanvas.style.display = "none";
+        btnRemoveBg.style.display = "none";
+        bgPreviewCanvas.getContext("2d").clearRect(0, 0, bgPreviewCanvas.width, bgPreviewCanvas.height);
+    }
+}
+
+bgInput.addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => setBgImage(ev.target.result);
+    reader.readAsDataURL(file);
+});
+
+btnRemoveBg.addEventListener("click", () => {
+    bgImage = null;
+    bgImageObj = null;
+    bgInput.value = "";
+    setBgImage(null);
+    draw();
+});
 
 // Interaction state
 let isDrawing = false;
@@ -175,6 +276,9 @@ btnSave.addEventListener("click", async () => {
             name: formattedName,
             width: mapWidth,
             height: mapHeight,
+            bgImage: bgImage || null,
+            outerBgColor: outerBgColor || "#000000",
+            outerBgImage: outerBgImage || null,
             obstacles: obstacles,
             towers: towers,
             waypoints: waypoints,
@@ -288,6 +392,25 @@ async function loadMap(filename) {
         waypoints = data.waypoints || [];
         playerSpawns = data.playerSpawns || [];
         currentLoadedMap = filename;
+        // Load background image if present
+        if (data.bgImage) {
+            setBgImage(data.bgImage);
+        } else {
+            bgImage = null; bgImageObj = null;
+            setBgImage(null);
+        }
+        
+        // Load outer background
+        outerBgColor = data.outerBgColor || "#000000";
+        outerColorInput.value = outerBgColor;
+        
+        if (data.outerBgImage) {
+            setOuterBgImage(data.outerBgImage);
+        } else {
+            outerBgImage = null; outerBgImageObj = null;
+            setOuterBgImage(null);
+        }
+        
         loadMapList(); // Refresh active state
         draw();
     } catch (e) {
@@ -550,9 +673,17 @@ function eraseAt(x, y) {
 
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // Draw Grid
-    ctx.strokeStyle = "#222";
+
+    // Draw Background Image or dark fill
+    if (bgImageObj) {
+        ctx.drawImage(bgImageObj, 0, 0, canvas.width, canvas.height);
+    } else {
+        ctx.fillStyle = "#0a0a0a";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    // Draw Grid (slightly lighter if bg image to remain visible)
+    ctx.strokeStyle = bgImageObj ? "rgba(255,255,255,0.1)" : "#222";
     ctx.lineWidth = 1;
     for(let x = 0; x < canvas.width; x += SNAP_GRID) {
         ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();

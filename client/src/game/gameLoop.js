@@ -18,6 +18,9 @@ let camZoom = 0.8;
 let lastCamInitialized = false;
 let mapNameDisplayTimer = 0; // Timer for intro text animation
 let currentMapName = "GALAXY";
+let currentBgImage = null; // HTMLImageElement loaded from mapData.bgImage
+let currentOuterBgImage = null;
+let currentOuterBgColor = "#000000";
 
 // UI & Game State
 let lastTime = 0;
@@ -211,6 +214,23 @@ export function initGameConfig(duration, players, mapData) {
     currentMapName = rawName.replace(/[._-]/g, ' ').replace('.json', '').trim().toUpperCase();
     if (!currentMapName) currentMapName = "GALAXY";
     mapNameDisplayTimer = 180; // 3 seconds @ 60fps
+
+    // Load background image if defined in mapData
+    currentBgImage = null;
+    if (mapData && mapData.bgImage) {
+        const img = new Image();
+        img.onload = () => { currentBgImage = img; };
+        img.src = mapData.bgImage;
+    }
+
+    // Load outer background
+    currentOuterBgColor = (mapData && mapData.outerBgColor) ? mapData.outerBgColor : "#000000";
+    currentOuterBgImage = null;
+    if (mapData && mapData.outerBgImage) {
+        const oImg = new Image();
+        oImg.onload = () => { currentOuterBgImage = oImg; };
+        oImg.src = mapData.outerBgImage;
+    }
 
     initStars(); // Regenerate stars for current map size
 
@@ -1112,6 +1132,13 @@ function draw() {
     const allPlayers = [player1, ...Object.values(remotePlayers)];
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    // DRAW OUTER BACKGROUND (Static backdrop)
+    ctx.fillStyle = currentOuterBgColor;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (currentOuterBgImage) {
+        ctx.drawImage(currentOuterBgImage, 0, 0, canvas.width, canvas.height);
+    }
+
     // LOGIKA KAMERA (KILL CAM)
     let targetX, targetY, targetZoom;
 
@@ -1157,20 +1184,26 @@ function draw() {
     ctx.scale(camZoom, camZoom);
     ctx.translate(-camX, -camY);
 
-    // DRAW STARS (Galaxy Background) - Clipped to Arena
+    // DRAW BACKGROUND - Custom image OR star field
     ctx.save();
     ctx.beginPath();
     ctx.rect(0, 0, arenaWidth, arenaHeight);
     ctx.clip();
-    
-    ctx.fillStyle = "white";
-    STARS.forEach(s => {
-        const twinkleAlpha = 0.5 + Math.sin(Date.now() * 0.005 + s.twinkle) * 0.5;
-        ctx.globalAlpha = twinkleAlpha;
-        ctx.fillRect(s.x, s.y, s.size * 2, s.size * 2);
-    });
+
+    if (currentBgImage) {
+        // Custom background image from map config
+        ctx.drawImage(currentBgImage, 0, 0, arenaWidth, arenaHeight);
+    } else {
+        // Default: animated star field
+        ctx.fillStyle = "white";
+        STARS.forEach(s => {
+            const twinkleAlpha = 0.5 + Math.sin(Date.now() * 0.005 + s.twinkle) * 0.5;
+            ctx.globalAlpha = twinkleAlpha;
+            ctx.fillRect(s.x, s.y, s.size * 2, s.size * 2);
+        });
+        ctx.globalAlpha = 1.0;
+    }
     ctx.restore();
-    ctx.globalAlpha = 1.0;
 
     // Gambar Neon Grid (Optimasi: Single path)
     ctx.lineWidth = 1;
