@@ -5,7 +5,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Tower Defense Arena</title>
-  <style>
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
     body {
       margin: 0;
       overflow: hidden;
@@ -13,11 +17,11 @@
       display: flex;
       justify-content: center;
       align-items: center;
+      width: 100vw;
       height: 100vh;
       touch-action: none;
       user-select: none;
       -webkit-user-select: none;
-      -webkit-tap-highlight-color: transparent;
       font-family: 'Outfit', sans-serif;
     }
 
@@ -161,23 +165,24 @@
 
     /* Lobby Styles - Futuristic Glassmorphism */
     #lobby-menu {
-      position: absolute;
+      position: fixed;
       top: 0;
       left: 0;
-      width: 100%;
-      height: 100%;
+      width: 100vw;
+      height: 100vh;
       background: radial-gradient(circle at center, #0d0d1f 0%, #05050a 100%);
       display: flex;
       flex-direction: column;
-      justify-content: flex-start; /* Menggunakan flex-start agar konten tidak terpotong saat scroll */
+      justify-content: flex-start;
       align-items: center;
       z-index: 100;
       color: white;
       font-family: 'Outfit', sans-serif;
-      overflow-y: auto; /* Aktifkan scroll vertikal */
+      overflow-y: auto;
+      overflow-x: hidden; /* FIX: Mencegah scroll ke kanan */
       -webkit-overflow-scrolling: touch;
-      padding: 40px 0; /* Jarak atas bawah saat scroll */
-      touch-action: auto; /* Izinkan gesture scroll di lobby */
+      padding: 40px 0;
+      touch-action: auto;
     }
 
     #lobby-menu::before {
@@ -203,14 +208,15 @@
       -webkit-backdrop-filter: blur(25px);
       border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 32px;
-      padding: 40px;
+      padding: 30px;
       box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 30px rgba(0, 242, 254, 0.1);
       display: flex;
       flex-direction: column;
       align-items: center;
-      width: 380px;
-      max-width: 95%;
+      width: 90%;
+      max-width: 400px; /* Ukuran ideal */
       animation: panelFadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+      flex-shrink: 0; /* Jangan biarkan panel mengecil */
     }
 
     @keyframes panelFadeUp {
