@@ -52,7 +52,11 @@ export class Player {
         this.onDeath = null; // Callback saat player mati
         this.killer = null;
         this.role = role;
+        
+        this.score = 0; // Kills
+        this.deaths = 0;
     }
+
 
     update(input, allPlayers = [], towers = [], minions = []) {
         if (!this.isAlive) {
@@ -278,7 +282,9 @@ export class Player {
         this.hp = this.maxHp;
         this.energy = this.maxEnergy;
         this.score = 0;
+        this.deaths = 0;
         this.isAlive = true;
+
         this.respawnTimer = 0;
         this.bullets = [];
         this.trail = [];
@@ -452,7 +458,9 @@ export class Player {
         if (!this.isAlive) return; // Mencegah double call
         this.killer = killer;
         this.isAlive = false;
+        this.deaths++;
         this.respawnTimer = 300; // 5 detik (60 FPS)
+
         this.bullets = [];
         this.trail = [];
         this.ultActive = 0;

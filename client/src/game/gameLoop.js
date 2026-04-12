@@ -518,7 +518,9 @@ function update() {
             respawnTimer: player1.respawnTimer,
             team: player1.team,
             score: player1.score,
+            deaths: player1.deaths,
             bulletPower: player1.bulletPower,
+
             role: player1.role,
             isShooting: player1.isShooting,
             lastDirX: player1.lastDir.x,
@@ -815,7 +817,36 @@ function endGame(isTimeUp = true) {
         endTitle.innerText = "GAME OVER";
         winnerDisplay.innerText = "SEMUA TOWER HANCUR!";
     }
+
+    // --- Match Results Listing ---
+    const resultsList = document.getElementById("match-results-list");
+    if (resultsList) {
+        const allPlayers = [player1, ...Object.values(remotePlayers)];
+        // Sort by kills (score) descending
+        allPlayers.sort((a, b) => b.score - a.score);
+
+        resultsList.innerHTML = `
+            <div class="results-table">
+                <div class="results-header">
+                    <span>PLAYER</span>
+                    <span>KILLS</span>
+                    <span>DEATHS</span>
+                </div>
+                ${allPlayers.map(p => `
+                    <div class="results-row ${p === player1 ? 'is-local' : ''}">
+                        <div class="player-info-cell">
+                          <img src="src/skills/ultimatum-${p.role}.png" class="role-icon-sm" />
+                          <span class="p-name">${p.name}</span>
+                        </div>
+                        <span class="stat-cell kills">${p.score}</span>
+                        <span class="stat-cell deaths">${p.deaths}</span>
+                    </div>
+                `).join("")}
+            </div>
+        `;
+    }
 }
+
 
 function spawnRandomSpell() {
     // 50% Energy, 25% HP, 25% Power
@@ -1727,7 +1758,9 @@ export function handleRemoteInput(id, input, state) {
         if (state.respawnTimer !== undefined) player.respawnTimer = state.respawnTimer;
         if (state.team !== undefined) player.team = state.team;
         if (state.score !== undefined) player.score = state.score;
+        if (state.deaths !== undefined) player.deaths = state.deaths;
         if (state.bulletPower !== undefined) player.bulletPower = state.bulletPower;
+
         if (state.role !== undefined) player.role = state.role;
         if (state.ultActive !== undefined) {
             // Detect ultimatum activation: transition from 0 -> >0

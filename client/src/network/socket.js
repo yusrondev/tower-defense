@@ -137,6 +137,10 @@ export function updateSettings(duration, mapId) {
   socket.emit("updateSettings", { duration, mapId });
 }
 
+export function changeRole(role) {
+  if (socket) socket.emit("changeRole", role);
+}
+
 export function onSettingsUpdated(callback) {
   socket.on("settingsUpdated", callback);
 }

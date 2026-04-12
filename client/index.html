@@ -164,7 +164,91 @@
       z-index: 2;
     }
 
-    /* Lobby Styles - Futuristic Glassmorphism */
+    /* Match Results Table Styles */
+    .results-table {
+      width: 100%;
+      margin: 25px 0;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 16px;
+      overflow-y: auto;
+      max-height: 240px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      scrollbar-width: thin;
+      scrollbar-color: rgba(0, 242, 254, 0.3) transparent;
+    }
+
+    .results-table::-webkit-scrollbar {
+      width: 6px;
+    }
+    .results-table::-webkit-scrollbar-thumb {
+      background: rgba(0, 242, 254, 0.3);
+      border-radius: 10px;
+    }
+
+    .results-header {
+      display: grid;
+      grid-template-columns: 1.5fr 1fr 1fr;
+      padding: 12px 20px;
+      background: rgba(0, 18, 20, 0.95);
+      backdrop-filter: blur(10px);
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: #00f2fe;
+      border-bottom: 1px solid rgba(0, 242, 254, 0.2);
+      position: sticky;
+      top: 0;
+      z-index: 5;
+    }
+
+
+    .results-row {
+      display: grid;
+      grid-template-columns: 1.5fr 1fr 1fr;
+      padding: 14px 20px;
+      align-items: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+      transition: background 0.3s;
+    }
+
+    .results-row:last-child { border-bottom: none; }
+    .results-row:hover { background: rgba(255, 255, 255, 0.05); }
+    .results-row.is-local { background: rgba(0, 242, 254, 0.05); }
+
+    .player-info-cell {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-align: left;
+    }
+
+    .p-name {
+      font-weight: 700;
+      font-size: 15px;
+      color: white;
+    }
+
+    .role-icon-sm {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 4px;
+    }
+
+    .stat-cell {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 800;
+      font-size: 18px;
+      text-align: center;
+    }
+
+    .stat-cell.kills { color: #2ed573; }
+    .stat-cell.deaths { color: #ff4757; }
+
+
+    /* Lobby Styles - Fullscreen Landscape */
     #lobby-menu {
       position: fixed;
       top: 0;
@@ -173,16 +257,13 @@
       height: 100vh;
       display: flex;
       flex-direction: column;
-      justify-content: flex-start; /* FIX: Gunakan flex-start + margin auto untuk centering bergulir */
+      justify-content: center;
       align-items: center;
       z-index: 100;
       color: white;
       font-family: 'Outfit', sans-serif;
-      overflow-y: auto;
-      overflow-x: hidden;
-      -webkit-overflow-scrolling: touch;
-      padding: 20px 0;
-      touch-action: auto;
+      overflow: hidden;
+      background: radial-gradient(circle at center, #0d0d1f 0%, #05050a 100%);
     }
 
     #lobby-bg {
@@ -191,352 +272,575 @@
       left: 0;
       width: 100vw;
       height: 100vh;
-      background: radial-gradient(circle at center, #0d0d1f 0%, #05050a 100%);
-      z-index: 5; /* FIX: Turunkan z-index agar tidak menutupi Game UI */
-      overflow: hidden;
+      z-index: 5;
     }
 
-    #lobby-bg::before {
-      content: "";
-      position: absolute;
-      top: -50%;
-      left: -50%;
-      width: 200%;
-      height: 200%;
-      background: radial-gradient(circle at center, rgba(0, 242, 254, 0.05) 0%, transparent 50%);
-      animation: rotateBg 20s linear infinite;
+    /* Lobby Header / Title */
+    .lobby-header {
+      position: relative;
+      margin-bottom: 15px;
+      text-align: center;
+      z-index: 10;
     }
 
-    @keyframes rotateBg {
-      from { transform: rotate(0deg); }
-      to { transform: rotate(360deg); }
-    }
 
-    .lobby-panel {
-      background: rgba(255, 255, 255, 0.03);
-      backdrop-filter: blur(25px);
-      -webkit-backdrop-filter: blur(25px);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 32px;
-      padding: 30px;
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 30px rgba(0, 242, 254, 0.1);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      width: 90%;
-      max-width: 400px;
-      animation: panelFadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-      flex-shrink: 0;
-      margin: auto 0; /* FIX: Centering bergulir (Centering jika muat, Scroll dari atas jika tidak) */
-    }
 
-    @keyframes panelFadeUp {
-      from {
-        opacity: 0;
-        transform: translateY(20px);
-      }
-
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    #lobby-menu h1 {
-      font-size: 48px;
+    .lobby-header h1 {
+      font-size: 32px;
       font-weight: 900;
-      margin-bottom: 35px;
+      margin: 0;
       background: linear-gradient(to right, #00f2fe, #4facfe, #00f2fe);
       background-size: 200% auto;
       -webkit-background-clip: text;
       background-clip: text;
       -webkit-text-fill-color: transparent;
-      letter-spacing: 8px;
-      text-align: center;
-      margin-top: 0;
+      letter-spacing: 12px;
       animation: shine 3s linear infinite;
       text-shadow: 0 0 30px rgba(0, 242, 254, 0.3);
     }
 
-    @keyframes shine {
-      to { background-position: 200% center; }
+    /* Horizontal Player Container */
+    #players-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 30px;
+      width: 90%;
+      height: 60%;
+      padding: 20px;
+      perspective: 1000px;
     }
 
-    #room-id-input,
-    #player-name-input,
-    #battle-duration {
-      font-size: 16px;
-      padding: 14px;
-      margin-bottom: 20px;
-      text-align: center;
-      border-radius: 12px;
+    .player-card {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
       border: 1px solid rgba(255, 255, 255, 0.1);
-      background: rgba(0, 0, 0, 0.4);
-      color: white;
-      width: 100%;
-      box-sizing: border-box;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      outline: none;
+      border-radius: 24px;
+      width: 200px;
+      height: 220px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 30px 20px;
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      position: relative;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+      animation: cardFadeIn 0.5s ease-out backwards;
     }
 
-    #room-id-input:focus,
-    #player-name-input:focus {
+    .player-card:hover {
+      transform: translateY(-10px) rotateY(5deg);
+      border-color: rgba(255, 255, 255, 0.3);
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .player-card.local-player {
       border-color: #00f2fe;
-      background: rgba(0, 0, 0, 0.6);
-      box-shadow: 0 0 15px rgba(0, 242, 254, 0.2);
+      box-shadow: 0 0 30px rgba(0, 242, 254, 0.2);
     }
 
-    .lobby-btn {
+    .player-card .player-color-indicator {
+      display: none;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      margin-bottom: 10px;
+      box-shadow: 0 0 20px currentColor;
+    }
+
+    .player-card .role-badge {
+      font-size: 10px;
+      text-transform: uppercase;
+      font-weight: 900;
+      letter-spacing: 1px;
+      padding: 4px 12px;
+      border-radius: 20px;
+      margin-bottom: 5px;
+      color: white;
+    }
+
+    .player-card .player-name {
+      font-size: 18px;
+      font-weight: 700;
+      color: white;
+      text-align: center;
+      margin-bottom: 5px;
       width: 100%;
-      font-size: 16px;
-      padding: 16px;
-      margin: 12px 0;
-      cursor: pointer;
-      background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
-      border: none;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .player-card .host-tag {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      color: #f1c40f;
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 1px;
+      background: rgba(241, 196, 15, 0.1);
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid rgba(241, 196, 15, 0.3);
+    }
+
+    .role-icon-lg {
+      width: 80px;
+      height: 80px;
+      margin-bottom: 15px;
+      filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.2));
+    }
+
+    @keyframes cardFadeIn {
+      from { opacity: 0; transform: translateY(30px) scale(0.9); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* Corner Controls */
+    .corner-controls {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      z-index: 1500;
+    }
+
+
+    .corner-btn {
+      position: absolute;
+      pointer-events: auto;
+      padding: 12px 24px;
       border-radius: 16px;
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(15px);
+      -webkit-backdrop-filter: blur(15px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
       color: white;
       font-weight: 800;
       text-transform: uppercase;
       letter-spacing: 2px;
-      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-      position: relative;
-      overflow: hidden;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
     }
 
-    .lobby-btn::after {
-      content: "";
+    .corner-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      transform: translateY(-2px);
+      border-color: #00f2fe;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    }
+
+    .corner-btn.top-left { top: 30px; left: 30px; border-radius: 12px 24px 24px 12px; }
+    .corner-btn.top-right { top: 30px; right: 30px; border-radius: 24px 12px 12px 24px; }
+    .corner-btn.bottom-left { bottom: 30px; left: 30px; }
+    .corner-btn.bottom-right { bottom: 30px; right: 30px; }
+    .corner-btn.map-select-btn { position: static; } 
+
+    /* Grouped Action Containers */
+    .action-group-tr, .action-group-br {
       position: absolute;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 12px;
+      pointer-events: none;
+    }
+    .action-group-tr { top: 30px; right: 30px; }
+    .action-group-br { bottom: 30px; right: 30px; }
+    
+    .action-group-tr button, .action-group-tr div,
+    .action-group-br button, .action-group-br div {
+      pointer-events: auto;
+      position: static !important;
+    }
+
+
+
+    .start-btn {
+      background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+      padding: 18px 48px;
+      font-size: 18px;
+      border: none;
+      box-shadow: 0 10px 30px rgba(0, 242, 254, 0.3);
+    }
+
+    .start-btn:hover {
+      filter: brightness(1.2);
+      box-shadow: 0 15px 40px rgba(0, 242, 254, 0.5);
+    }
+
+    /* Modals System */
+    .modal-overlay {
+      position: fixed;
       top: 0;
-      left: -100%;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-      transition: 0.5s;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      z-index: 1000;
+      display: none; /* Flex when active */
+      justify-content: center;
+      align-items: center;
+      opacity: 0;
+      transition: opacity 0.3s ease;
     }
 
-    .lobby-btn:hover::after {
-      left: 100%;
+    .modal-overlay.active {
+      display: flex;
+      opacity: 1;
     }
 
-    .lobby-btn:hover {
-      transform: translateY(-4px);
-      filter: brightness(1.1);
+    .modal-content {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 32px;
+      padding: 40px;
+      max-width: 800px;
+      width: 90%;
+      max-height: 85vh;
+      overflow-y: auto;
+      position: relative;
+      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.8);
+      transform: translateY(20px);
+      transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
 
-    .lobby-btn:active {
+    .modal-overlay.active .modal-content {
       transform: translateY(0);
     }
 
-    #lobby-players-list {
-      margin-top: 15px;
-      background: rgba(0, 0, 0, 0.2);
-      padding: 15px;
-      border-radius: 12px;
-      width: 100%;
-      box-sizing: border-box;
-      border: 1px solid rgba(255, 255, 255, 0.05);
-    }
-
-    /* Role Selection Styles */
-    .role-selection {
+    .modal-close {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: white;
       display: flex;
       justify-content: center;
-      gap: 10px;
-      margin-bottom: 20px;
-      width: 100%;
+      align-items: center;
+      cursor: pointer;
+      font-size: 20px;
+      transition: all 0.3s;
+      float: right;
+      bottom: 10px !important;
     }
 
-    .role-card {
-      flex: 1;
+    .modal-close:hover {
+      background: #ff4757;
+      border-color: #ff4757;
+    }
+
+    .modal-title {
+      font-size: 24px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 4px;
+      color: #00f2fe;
+      margin-bottom: 30px;
+      border-bottom: 2px solid rgba(0, 242, 254, 0.2);
+      padding-bottom: 17px;
+    }
+
+    /* Role Selection in Modal */
+    .role-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+
+    .role-option {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 20px;
+      padding: 25px 15px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .role-option:hover {
+      background: rgba(255, 255, 255, 0.08);
+      transform: translateY(-5px);
+    }
+
+    .role-option.active {
+      border-color: #00f2fe;
+      background: rgba(0, 242, 254, 0.1);
+      box-shadow: 0 0 20px rgba(0, 242, 254, 0.2);
+    }
+
+    .role-option[data-role="damager"].active { border-color: #ff4757; background: rgba(255, 71, 87, 0.1); }
+    .role-option[data-role="tanker"].active { border-color: #ffa502; background: rgba(255, 165, 2, 0.1); }
+    .role-option[data-role="healer"].active { border-color: #2ed573; background: rgba(46, 213, 115, 0.1); }
+
+    /* Map Selection in Modal */
+    .map-modal-layout {
+      display: flex;
+      flex-direction: column;
+      gap: 25px;
+    }
+
+    .map-modal-top {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 25px;
+    }
+
+
+    #map-preview-canvas {
+      width: 100%;
+      height: auto;
+      border-radius: 12px;
+      background: #000;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .map-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 15px;
+      max-height: 480px;
+      overflow-y: auto;
+      padding: 5px;
+    }
+
+
+    .map-card {
       background: rgba(255, 255, 255, 0.03);
       border: 1px solid rgba(255, 255, 255, 0.08);
       border-radius: 16px;
-      padding: 15px 5px;
+      padding: 12px;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       display: flex;
       flex-direction: column;
-      align-items: center;
-      cursor: pointer;
-      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      gap: 10px;
       position: relative;
+      overflow: hidden;
     }
 
-    .role-card:hover {
+    .map-card:hover {
       background: rgba(255, 255, 255, 0.08);
       transform: translateY(-5px);
-      border-color: rgba(255, 255, 255, 0.2);
+      border-color: rgba(0, 242, 254, 0.3);
     }
 
-    .role-card.active {
+    .map-card.active {
       background: rgba(0, 242, 254, 0.1);
       border-color: #00f2fe;
-      box-shadow: 0 0 15px rgba(0, 242, 254, 0.2);
+      box-shadow: 0 10px 20px rgba(0, 242, 254, 0.15);
     }
 
-    .role-icon {
-      width: 30px;
-      height: 30px;
-      margin-bottom: 6px;
-      object-fit: contain;
+    .map-card-canvas {
+      width: 100%;
+      height: 90px;
+      background: #000;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      pointer-events: none;
     }
 
-    .role-name {
-      font-size: 10px;
-      font-weight: 700;
+    .map-card-label {
+      font-size: 11px;
+      font-weight: 800;
       text-transform: uppercase;
       letter-spacing: 1px;
       color: rgba(255, 255, 255, 0.6);
+      text-align: center;
+      transition: color 0.3s;
     }
 
-    .role-card.active .role-name {
+    .map-card.active .map-card-label {
       color: #00f2fe;
     }
 
-    .role-card[data-role="damager"].active {
-      border-color: #ff4757;
-      background: rgba(255, 71, 87, 0.1);
-      box-shadow: 0 0 15px rgba(255, 71, 87, 0.2);
-    }
-
-    .role-card[data-role="damager"].active .role-name {
-      color: #ff4757;
-    }
-
-    .role-card[data-role="tanker"].active {
-      border-color: #ffa502;
-      background: rgba(255, 165, 2, 0.1);
-      box-shadow: 0 0 15px rgba(255, 165, 2, 0.2);
-    }
-
-    .role-card[data-role="tanker"].active .role-name {
-      color: #ffa502;
-    }
-
-    .role-card[data-role="healer"].active {
-      border-color: #2ed573;
-      background: rgba(46, 213, 115, 0.1);
-      box-shadow: 0 0 15px rgba(46, 213, 115, 0.2);
-    }
-
-    .role-card[data-role="healer"].active .role-name {
-      color: #2ed573;
-    }
-
-    /* Role Details Accordion */
-    .role-details-container {
-      width: 100%;
-      margin-top: 5px;
-      margin-bottom: 20px;
-      background: rgba(255, 255, 255, 0.03);
-      border-radius: 12px;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      overflow: hidden;
-      transition: all 0.4s ease;
-    }
-
-    .role-info-item {
-      display: none;
-      padding: 15px;
-      animation: slideIn 0.3s ease-out forwards;
-    }
-
-    .role-info-item.active {
-      display: block;
-    }
-
-    @keyframes slideIn {
-      from {
-        opacity: 0;
-        transform: translateY(10px);
-      }
-
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    .role-info-header {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 1.5px;
-      color: #00f2fe;
-      margin-bottom: 10px;
-      font-weight: 800;
-      border-bottom: 1px solid rgba(0, 242, 254, 0.2);
-      padding-bottom: 5px;
-    }
-
-    .role-info-desc {
-      font-size: 13px;
-      line-height: 1.5;
-      color: rgba(255, 255, 255, 0.85);
-      margin-bottom: 12px;
-    }
-
-    .role-info-stats {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .stat-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-size: 12px;
-    }
-
-    .stat-label {
-      font-weight: 700;
+    .map-card.active::after {
+      content: 'SELECTED';
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: #00f2fe;
+      color: #000;
+      font-size: 8px;
+      font-weight: 900;
       padding: 2px 6px;
       border-radius: 4px;
-      background: rgba(255, 255, 255, 0.1);
-      min-width: 80px;
-      text-align: center;
-      font-size: 10px;
+      letter-spacing: 0.5px;
+    }
+
+
+    .duration-setting {
+      
+    }
+
+    #battle-duration {
+      width: 100%;
+      padding: 14px;
+      background: rgba(255, 255, 255, 0.05);
+      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 600;
+      font-size: 15px;
+      outline: none;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    #battle-duration:focus {
+      border-color: #00f2fe;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .modal-label {
+      display: block;
+      margin-bottom: 12px;
+      font-size: 11px;
+      font-weight: 800;
+      color: #00f2fe;
       text-transform: uppercase;
+      letter-spacing: 2.5px;
+      opacity: 0.8;
     }
 
-    /* Color adjustments for roles */
-    .role-info-item[data-role="damager"] .role-info-header {
-      color: #ff4757;
-      border-color: rgba(255, 71, 87, 0.3);
+    #save-map-settings {
+      width: 100%;
+      margin-top: 30px;
+      background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+      padding: 18px;
+      font-size: 16px;
+      font-weight: 900;
+      color: white;
+      border: none;
+      border-radius: 16px;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      cursor: pointer;
+      transition: all 0.3s;
+      box-shadow: 0 10px 25px rgba(0, 242, 254, 0.3);
     }
-
-    .role-info-item[data-role="damager"] .stat-label {
-      color: #ff4757;
-      background: rgba(255, 71, 87, 0.1);
+    
+    #save-map-settings:hover {
+      transform: translateY(-3px);
+      filter: brightness(1.2);
+      box-shadow: 0 15px 35px rgba(0, 242, 254, 0.5);
     }
+    
+    /* Custom Scrollbar for Map Grid */
+    .map-grid::-webkit-scrollbar { width: 6px; }
+    .map-grid::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.02); }
+    .map-grid::-webkit-scrollbar-thumb { background: rgba(0, 242, 254, 0.2); border-radius: 10px; }
+    .map-grid::-webkit-scrollbar-thumb:hover { background: rgba(0, 242, 254, 0.4); }
 
-    .role-info-item[data-role="tanker"] .role-info-header {
-      color: #ffa502;
-      border-color: rgba(255, 165, 2, 0.3);
-    }
-
-    .role-info-item[data-role="tanker"] .stat-label {
-      color: #ffa502;
-      background: rgba(255, 165, 2, 0.1);
-    }
-
-    .role-info-item[data-role="healer"] .role-info-header {
-      color: #2ed573;
-      border-color: rgba(46, 213, 115, 0.3);
-    }
-
-    .role-info-item[data-role="healer"] .stat-label {
-      color: #2ed573;
-      background: rgba(46, 213, 115, 0.1);
-    }
-
-    .player-entry {
+    /* Pre-lobby Setup Cohesion */
+    #lobby-setup {
       display: flex;
-      justify-content: space-between;
+      flex-direction: column;
       align-items: center;
-      margin-bottom: 8px;
-      padding: 8px;
+      gap: 15px;
+      width: 100%;
+      max-width: 400px;
       background: rgba(255, 255, 255, 0.03);
-      border-radius: 6px;
+
+      padding: 30px;
+      border-radius: 24px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+
+    #lobby-setup input {
+      width: 100%;
+      padding: 16px 20px;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 14px;
+      color: white;
+      font-family: 'Outfit', sans-serif;
+      font-size: 15px;
+      transition: all 0.3s;
+      box-sizing: border-box;
+    }
+
+    #lobby-setup input:focus {
+      outline: none;
+      border-color: #00f2fe;
+      background: rgba(0, 0, 0, 0.5);
+      box-shadow: 0 0 15px rgba(0, 242, 254, 0.2);
+    }
+
+    .setup-btn {
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+      color: white !important;
+      font-weight: 900 !important;
+      letter-spacing: 2px;
+      border-radius: 14px !important;
+      margin-top: 10px;
+      box-shadow: 0 10px 20px rgba(0, 242, 254, 0.2);
+    }
+
+    /* Action Group Bottom Right */
+    .action-group-br {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      z-index: 100;
+    }
+
+    #save-map-settings:hover {
+      transform: translateY(-3px);
+      filter: brightness(1.2);
+      box-shadow: 0 15px 35px rgba(0, 242, 254, 0.5);
+    }
+
+    /* Pre-lobby Join UI */
+    #lobby-setup {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 90%;
+      max-width: 400px;
+      z-index: 200;
+      background: rgba(255, 255, 255, 0.03);
+      backdrop-filter: blur(25px);
+      -webkit-backdrop-filter: blur(25px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 32px;
+      padding: 40px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    }
+
+    #lobby-setup h1 {
+        font-size: 32px;
+        letter-spacing: 8px;
+        margin-bottom: 30px;
+    }
+
+    .setup-btn {
+        width: 100%;
+        margin-top: 20px;
     }
 
     .host-tag {
@@ -1439,87 +1743,117 @@
     .rec-all { color: #00f2fe; border: 1px solid rgba(0, 242, 254, 0.2); }
 
     /* --- Responsive Mobile Overrides --- */
-    @media (max-width: 480px) {
+    @media (max-width: 900px), (max-height: 540px) {
+      .lobby-header { margin-bottom: 10px; }
+
       #lobby-menu {
-        padding: 20px 0;
+        justify-content: flex-start;
+        padding-top: 40px;
+        overflow-y: auto;
       }
 
-      .lobby-panel {
-        padding: 20px;
-        width: 100%;
-        max-width: 92%;
-        border-radius: 20px;
+      #lobby-setup {
+        padding: 20px 25px;
+        gap: 12px;
+        margin-bottom: 40px;
       }
+      #lobby-setup input { padding: 12px 15px; }
+      #join-room-btn { padding: 14px; font-size: 14px; }
 
-      #lobby-menu h1 {
-        font-size: 28px;
-        letter-spacing: 4px;
-        margin-bottom: 25px;
-      }
+      .lobby-header h1 { font-size: 20px; letter-spacing: 6px; }
 
-      .role-selection {
+      /* Game Over Mobile Landscape Cleanup */
+      .results-card {
+        padding: 15px 30px;
         gap: 8px;
-        margin-bottom: 15px;
+        width: 95%;
+        max-width: 700px;
+      }
+      #end-title { font-size: 24px; }
+      #winner-text { font-size: 14px; margin-bottom: 5px; letter-spacing: 1px; }
+      .results-table {
+        margin: 5px 0;
+        max-height: 110px;
+      }
+      .results-row { padding: 6px 15px; }
+      .p-name { font-size: 13px; }
+      .stat-cell { font-size: 14px; }
+      .role-icon-sm { width: 22px; height: 22px; }
+      .lobby-btn { padding: 10px 24px; font-size: 13px; }
+
+      #players-container {
+
+        gap: 15px;
+        height: 70%;
+        width: 100%;
+        padding: 10px;
       }
 
-      /* .role-card {
-        width: 80px;
-        height: 100px;
-        padding: 8px;
-      } */
-
-      .role-name {
-        font-size: 10px;
+      .player-card {
+        width: 140px;
+        height: 120px;
+        padding: 15px 10px;
+        border-radius: 16px;
       }
 
-      .role-icon {
-        width: 40px;
-        height: 40px;
-      }
+      .player-card .player-color-indicator { width: 40px; height: 40px; }
+      .role-icon-lg { width: 50px; height: 50px; margin-bottom: 8px; }
+      .player-card .player-name { font-size: 14px; }
+      .player-card .host-tag { top: 8px; right: 8px; font-size: 8px; }
+      .player-card .role-badge { font-size: 8px; padding: 2px 8px; }
 
-      .role-info-header {
-        font-size: 10px;
-      }
-
-      .role-info-desc {
+      .corner-btn {
+        padding: 8px 16px;
         font-size: 11px;
+        border-radius: 10px;
+        gap: 6px;
       }
 
-      .lobby-btn {
-        padding: 14px;
-        font-size: 14px;
-        border-radius: 12px;
+      .corner-btn.top-left { top: 15px; left: 15px; }
+      .corner-btn.top-right { top: 15px; right: 15px; }
+      .corner-btn.bottom-left { bottom: 15px; left: 15px; }
+      .corner-btn.bottom-right { bottom: 15px; right: 15px; }
+      
+      /* Avoid overlap between host map select and start button */
+      .corner-btn.map-select-btn { 
+        top: 15px; 
+        right: 15px; 
       }
 
-      #map-preview-canvas {
-        width: 100%;
-        max-width: 260px;
-        height: auto;
+
+      .start-btn {
+        padding: 12px 24px;
+        font-size: 13px;
       }
 
-      .spell-guide-item {
-        padding: 8px;
-        gap: 8px;
-      }
-
-      .spell-name {
+      #guest-map-info {
+        padding: 8px 16px;
         font-size: 10px;
       }
 
-      .spell-effect {
-        font-size: 9px;
-      }
-
-      .spell-role-recommend {
-        font-size: 8px;
-        padding: 3px 8px;
-      }
-
-      #player-name-input, #room-id-input, #battle-duration, #map-select {
+      #lobby-setup input {
         padding: 12px;
         font-size: 14px;
-        margin-bottom: 10px;
+        width: 240px;
       }
+
+      /* Modal Adjustments */
+      .modal-content {
+        padding: 20px;
+        border-radius: 20px;
+      }
+      .modal-title { font-size: 18px; margin-bottom: 15px; }
+      .role-grid { gap: 10px; }
+      .role-option { padding: 15px 10px; }
+      .role-icon-lg { width: 40px; height: 40px; }
+      .map-modal-layout { grid-template-columns: 1fr; gap: 15px; }
+      .map-list-scroll { max-height: 180px; }
+    }
+
+    @media (max-width: 600px) {
+       /* Extra squeeze for very narrow devices if needed */
+       #players-container { flex-wrap: wrap; overflow-y: auto; align-content: center; }
+       .player-card { width: 120px; height: 180px; }
     }
 
     /* Map Preview Styles */
@@ -1672,136 +2006,142 @@
 
   <div id="lobby-bg"></div>
   <div id="lobby-menu">
-    <div class="lobby-panel">
+    <div class="lobby-header">
       <h1>TOWER DEFENSE</h1>
+    </div>
 
-      <div id="lobby-setup" style="width: 100%;">
-        <input type="text" id="player-name-input" placeholder="Nama Kamu..." maxlength="12" />
+    <!-- Initial Join / Setup Screen -->
+    <div id="lobby-setup">
+      <input type="text" id="player-name-input" placeholder="NAMA KAMU..." maxlength="12" />
+      <input type="text" id="room-id-input" placeholder="ID ROOM..." />
+      <button id="join-room-btn" class="lobby-btn setup-btn">MASUK KE ARENA</button>
+      <div id="lobby-status" style="margin-top: 5px; color: #00f2fe; font-size: 12px; font-weight: bold; text-align: center; opacity:0.8;"></div>
+    </div>
 
-        <input type="text" id="room-id-input" placeholder="ID Room..." />
+    <!-- Main Waiting List (Visible after join) -->
+    <div id="players-container" style="display: none;">
+      <!-- Horizontal Player Cards will be rendered here via JS -->
+    </div>
 
-        <div class="role-selection mt-1">
-          <div class="role-card active" data-role="damager">
-            <img src="src/skills/ultimatum-damager.png" class="role-icon" draggable="false" />
-            <span class="role-name">Damager</span>
-          </div>
-          <div class="role-card" data-role="tanker">
-            <img src="src/skills/ultimatum-tanker.png" class="role-icon" draggable="false" />
-            <span class="role-name">Tanker</span>
-          </div>
-          <div class="role-card" data-role="healer">
-            <img src="src/skills/ultimatum-healer.png" class="role-icon" draggable="false" />
-            <span class="role-name">Healer</span>
-          </div>
-        </div>
+    <!-- Corner Controls -->
+    <div class="corner-controls">
+      <!-- Top Left: Spell Info -->
+      <button id="spell-info-btn" class="corner-btn top-left" style="display: none;">
+        <span>📝</span> Info Spells
+      </button>
 
-        <!-- Role Details Accordion -->
-        <div class="role-details-container">
-          <div class="role-info-item active" data-role="damager">
-            <div class="role-info-header">FOKUS: SERANGAN & SKOR</div>
-            <div class="role-info-desc">Spesialis penghancur minion dengan damage projectile yang bisa terus meningkat.
-            </div>
-            <div class="role-info-stats">
-              <div class="stat-row"><span class="stat-label">Ultimatum</span> <span>Laser Penghancur (1s)</span></div>
-              <div class="stat-row"><span class="stat-label">Passive</span> <span>Scaling Damage via Red Spell</span>
-              </div>
-            </div>
-          </div>
+      <!-- Bottom Left: Change Role -->
+      <button id="change-role-btn" class="corner-btn bottom-left" style="display: none;">
+        <span>⚔️</span> Ganti Role
+      </button>
 
-          <div class="role-info-item" data-role="tanker">
-            <div class="role-info-header">FOKUS: PERTAHANAN TIM</div>
-            <div class="role-info-desc">Garda terdepan yang menjaga rekan tim dari gempuran minion menggunakan barrier
-              pelindung.</div>
-            <div class="role-info-stats">
-              <div class="stat-row"><span class="stat-label">Ultimatum</span> <span>Guard Barrier (Invulnerable
-                  3s)</span>
-              </div>
-              <div class="stat-row"><span class="stat-label">Passive</span> <span>Solid Structure (Immune inside
-                  barrier)</span></div>
-            </div>
-          </div>
+      <!-- Top Right Group: Map Selection & Map Info -->
+      <div class="action-group-tr">
+        <button id="host-map-btn" class="corner-btn top-right" style="display: none;">
+          <span>🗺️</span> Pilih Map
+        </button>
 
-          <div class="role-info-item" data-role="healer">
-            <div class="role-info-header">FOKUS: PEMULIHAN & SUPPORT</div>
-            <div class="role-info-desc">Menjamin kelangsungan hidup tim dengan memulihkan HP rekan di tengah
-              pertempuran.
-            </div>
-            <div class="role-info-stats">
-              <div class="stat-row"><span class="stat-label">Ultimatum</span> <span>Healing Field (Rapid HP Regen
-                  3s)</span></div>
-              <div class="stat-row"><span class="stat-label">Passive</span> <span>Area Sustain (High HP recovery)</span>
-              </div>
-            </div>
-          </div>
+        <!-- Map Info (Visible for Everyone) -->
+        <div id="guest-map-info" class="corner-btn" style="display: none; border-color: rgba(0, 242, 254, 0.2); background: rgba(0,0,0,0.6); pointer-events: none;">
+          <span id="map-name-display">MAP: LOADING...</span>
+          <span id="duration-display" style="margin-left: 15px; border-left: 1px solid rgba(255,255,255,0.2); padding-left: 15px;">0:00</span>
         </div>
       </div>
 
-      <div id="host-settings" style="display:none; text-align: center; width: 100%;">
-        <label style="display:block; margin-bottom:10px; font-size:14px; opacity:0.8; text-align: center;">DURASI
-          PERTANDINGAN</label>
-        <select id="battle-duration">
-          <option value="60">1 Menit</option>
-          <option value="120">2 Menit</option>
-          <option value="180">3 Menit</option>
-          <option value="300">5 Menit</option>
-        </select>
-        
-        <label style="display:block; margin-top:15px; margin-bottom:10px; font-size:14px; opacity:0.8; text-align: center;">PILIH MAP</label>
-        <select id="map-select" style="font-size: 16px; padding: 14px; text-align: center; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(0, 0, 0, 0.4); color: white; width: 100%; box-sizing: border-box; outline: none;">
-          <option value="">Memuat maps...</option>
-        </select>
+      <!-- Bottom Right Group: Start Button -->
+      <div class="action-group-br">
+        <button id="start-game-btn" class="corner-btn start-btn" style="display: none;">
+          MULAI BERTANDING
+        </button>
       </div>
+    </div>
 
-      <button id="join-room-btn" class="lobby-btn">Buat / Gabung Room</button>
 
-      <!-- Map Preview Section (Pindah ke atas tombol start) -->
-      <div id="map-preview-container">
-        <div class="preview-label">ARENA PREVIEW</div>
-        <canvas id="map-preview-canvas" width="260" height="160"></canvas>
+  </div>
+
+  <!-- Modal: Role Selection -->
+  <div id="role-modal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-close" id="close-role-modal">&times;</div>
+      <div class="modal-title">Pilih Role Kamu</div>
+      <div class="role-grid">
+        <div class="role-option" data-role="damager">
+          <img src="src/skills/ultimatum-damager.png" class="role-icon-lg" />
+          <div style="color:#ff4757; font-weight:900; margin-bottom:10px;">DAMAGER</div>
+          <div style="font-size:12px;color:#ff4757; opacity:0.8;">Fokus: Serangan & Skor</div>
+        </div>
+        <div class="role-option" data-role="tanker">
+          <img src="src/skills/ultimatum-tanker.png" class="role-icon-lg" />
+          <div style="color:#ffa502; font-weight:900; margin-bottom:10px;">TANKER</div>
+          <div style="font-size:12px;color:#ffa502; opacity:0.8;">Fokus: Pertahanan Tim</div>
+        </div>
+        <div class="role-option" data-role="healer">
+          <img src="src/skills/ultimatum-healer.png" class="role-icon-lg" />
+          <div style="color:#2ed573; font-weight:900; margin-bottom:10px;">HEALER</div>
+          <div style="font-size:12px;color:#2ed573; opacity:0.8;">Fokus: Pemulihan & Support</div>
+        </div>
       </div>
+    </div>
+  </div>
 
-      <button id="start-game-btn" class="lobby-btn" style="display:none;">Mulai Pertandingan</button>
-
-      <div id="lobby-players-list" style="display:none;">
-        <strong style="font-size: 13px; opacity: 0.6; text-transform: uppercase; letter-spacing: 1px;">Pemain
-          Menunggu</strong>
-        <div id="players-container" style="margin-top:12px;"></div>
-      </div>
-
-      <!-- Spell Guide Intel -->
-      <div id="lobby-spell-guide">
-        <div class="guide-title">SPELLS GUIDE</div>
-        <div class="spell-list">
-          <div class="spell-guide-item">
-            <div class="spell-orb red">★</div>
-            <div class="spell-details">
-              <div class="spell-name" style="color:#e74c3c">POWER SPELL</div>
-              <div class="spell-effect">Meningkatkan Bullet Damage permanen (stacking).</div>
-            </div>
-            <div class="spell-role-recommend rec-damager">Damager Only</div>
-          </div>
-          
-          <div class="spell-guide-item">
-            <div class="spell-orb yellow">⚡</div>
-            <div class="spell-details">
-              <div class="spell-name" style="color:#f1c40f">ENERGY SPELL</div>
-              <div class="spell-effect">Memulihkan Energy untuk tembakan & skill ultimatum.</div>
-            </div>
-            <div class="spell-role-recommend rec-all">Semua Role</div>
-          </div>
-
-          <div class="spell-guide-item">
-            <div class="spell-orb green">+</div>
-            <div class="spell-details">
-              <div class="spell-name" style="color:#2ecc71">HEALTH SPELL</div>
-              <div class="spell-effect">Memulihkan HP secara instan saat pertempuran.</div>
-            </div>
-            <div class="spell-role-recommend rec-all">Semua Role</div>
+  <!-- Modal: Map Selection (Host Only) -->
+  <div id="map-modal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-close" id="close-map-modal">&times;</div>
+      <div class="modal-title">Pengaturan Pertandingan</div>
+      <div class="map-modal-layout">
+        <div class="duration-setting" style="margin-top: 0; margin-bottom: 20px;">
+          <label class="modal-label">DURASI BATTLE</label>
+          <select id="battle-duration">
+            <option value="60">1 MENIT</option>
+            <option value="120">2 MENIT</option>
+            <option value="180">3 MENIT</option>
+            <option value="300">5 MENIT</option>
+          </select>
+        </div>
+        <div>
+          <label class="modal-label">PILIH ARENA</label>
+          <div id="map-select-list" class="map-grid">
+            <!-- Dinamis via JS -->
           </div>
         </div>
       </div>
+      <button id="save-map-settings">SIMPAN PENGATURAN</button>
 
-      <div id="lobby-status" style="margin-top: 15px; color: #00f2fe; font-size: 14px; font-weight: bold;"></div>
+    </div>
+  </div>
+
+  <!-- Modal: Spell Guide -->
+  <div id="spell-modal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 500px;">
+      <div class="modal-close" id="close-spell-modal">&times;</div>
+      <div class="modal-title">Spells Guide</div>
+      <div class="spell-list">
+        <div class="spell-guide-item">
+          <div class="spell-orb red">★</div>
+          <div class="spell-details">
+            <div class="spell-name" style="color:#e74c3c">POWER SPELL</div>
+            <div class="spell-effect">Meningkatkan Bullet Damage permanen (stacking).</div>
+          </div>
+          <div class="spell-role-recommend rec-damager">Damager</div>
+        </div>
+        <div class="spell-guide-item">
+          <div class="spell-orb yellow">⚡</div>
+          <div class="spell-details">
+            <div class="spell-name" style="color:#f1c40f">ENERGY SPELL</div>
+            <div class="spell-effect">Memulihkan Energy untuk tembakan & skill.</div>
+          </div>
+          <div class="spell-role-recommend rec-all">Semua Role</div>
+        </div>
+        <div class="spell-guide-item">
+          <div class="spell-orb green">+</div>
+          <div class="spell-details">
+            <div class="spell-name" style="color:#2ecc71">HEALTH SPELL</div>
+            <div class="spell-effect">Memulihkan HP secara instan.</div>
+          </div>
+          <div class="spell-role-recommend rec-all">Semua Role</div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1809,9 +2149,15 @@
     <div class="results-card">
       <h2 id="end-title">TITLE</h2>
       <div id="winner-text">MESSAGE</div>
+      
+      <div id="match-results-list">
+        <!-- Dinamis via JS -->
+      </div>
+
       <button id="return-lobby-btn" class="lobby-btn">Kembali ke Lobby</button>
     </div>
   </div>
+
 
   <div id="game-container" style="display: none;">
     <div id="match-status-hub">

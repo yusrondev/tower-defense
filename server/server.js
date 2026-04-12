@@ -78,11 +78,20 @@ io.on("connection", (socket) => {
 
     socket.on("joinRoom", ({ roomId, playerName, role }) => {
         if (!rooms[roomId]) {
+            // Pick first map if available
+            let initialMapId = "default";
+            try {
+                const maps = fs.readdirSync(mapsDir).filter(f => f.endsWith('.json'));
+                if (maps.length > 0) initialMapId = maps[0];
+            } catch (e) {
+                console.error("Failed to scan maps for new room:", e);
+            }
+
             rooms[roomId] = {
                 players: [], // List of { id, color, name, isHost }
                 gameStarted: false,
                 duration: 60, // Default 1 min
-                selectedMapId: "default",
+                selectedMapId: initialMapId,
                 readyPlayers: new Set(),
                 availableColors: ["#3498db", "#e74c3c", "#2ecc71", "#f1c40f", "#9b59b6", "#e67e22", "#ecf0f1", "#1abc9c"]
             };
@@ -120,7 +129,27 @@ io.on("connection", (socket) => {
         if (room.players[0] && room.players[0].id === socket.id) {
             if (duration !== undefined) room.duration = duration;
             if (mapId !== undefined) room.selectedMapId = mapId;
-            socket.to(currentRoom).emit("settingsUpdated", { duration: room.duration, mapId: room.selectedMapId });
+            
+            // Broadcast full update to everyone including host
+            io.to(currentRoom).emit("lobbyUpdate", {
+                players: room.players,
+                duration: room.duration,
+                selectedMapId: room.selectedMapId
+            });
+        }
+    });
+
+    socket.on("changeRole", (role) => {
+        if (!currentRoom || !rooms[currentRoom]) return;
+        const room = rooms[currentRoom];
+        const player = room.players.find(p => p.id === socket.id);
+        if (player) {
+            player.role = role;
+            io.to(currentRoom).emit("lobbyUpdate", {
+                players: room.players,
+                duration: room.duration,
+                selectedMapId: room.selectedMapId
+            });
         }
     });
 

@@ -1,34 +1,42 @@
-import { connectSocket, joinRoom, requestStartGame, updateSettings, onSettingsUpdated, onLobbyUpdate, onMatchFound, getMyId, requestReturnLobby, onReturnToLobby, emitPlayerReady, onMatchLoadingUpdate, onMatchStartFinal, onMatchPreparing } from "./network/socket.js";
+import { connectSocket, joinRoom, requestStartGame, updateSettings, onSettingsUpdated, onLobbyUpdate, onMatchFound, getMyId, requestReturnLobby, onReturnToLobby, emitPlayerReady, onMatchLoadingUpdate, onMatchStartFinal, onMatchPreparing, changeRole } from "./network/socket.js";
 import { initGameConfig, startGame, stopGame, syncLobbyState } from "./game/gameLoop.js";
+
 await connectSocket();
 
+// --- UI Elements ---
 const joinBtn = document.getElementById("join-room-btn");
-const startBtn = document.getElementById("start-game-btn");
 const roomInput = document.getElementById("room-id-input");
-const lobbyStatus = document.getElementById("lobby-status");
+const playerNameInput = document.getElementById("player-name-input");
 const lobbyMenu = document.getElementById("lobby-menu");
+const lobbySetup = document.getElementById("lobby-setup");
+const playersContainer = document.getElementById("players-container");
 const gameContainer = document.getElementById("game-container");
+const lobbyStatus = document.getElementById("lobby-status");
+
+// Corner Buttons
+const spellInfoBtn = document.getElementById("spell-info-btn");
+const changeRoleBtn = document.getElementById("change-role-btn");
+const hostMapBtn = document.getElementById("host-map-btn");
+const startBtn = document.getElementById("start-game-btn");
+const guestMapInfo = document.getElementById("guest-map-info");
+
+// Modals
+const roleModal = document.getElementById("role-modal");
+const mapModal = document.getElementById("map-modal");
+const spellModal = document.getElementById("spell-modal");
+
 let selectedRole = "damager";
 let isMapLoading = false;
+let currentLobbyPlayers = [];
 
+// --- Generic Toast System ---
 function showToast(message, type = "info") {
   const container = document.getElementById("toast-container");
   const toast = document.createElement("div");
   toast.className = `toast ${type}`;
   
-  const icons = {
-    success: "✅",
-    error: "❌",
-    warning: "⚠️",
-    info: "ℹ️"
-  };
-
-  const titles = {
-    success: "Berhasil",
-    error: "Error",
-    warning: "Perhatian",
-    info: "Info"
-  };
+  const icons = { success: "✅", error: "❌", warning: "⚠️", info: "ℹ️" };
+  const titles = { success: "Berhasil", error: "Error", warning: "Perhatian", info: "Info" };
 
   toast.innerHTML = `
     <div class="toast-icon">${icons[type] || icons.info}</div>
@@ -42,52 +50,88 @@ function showToast(message, type = "info") {
   `;
 
   container.appendChild(toast);
-  
-  // Trigger animation
   setTimeout(() => toast.classList.add("active"), 10);
-
-  // Auto remove
   setTimeout(() => {
     toast.classList.remove("active");
     setTimeout(() => toast.remove(), 500);
   }, 3000);
 }
 
-// Role Selection Logic
-const roleCards = document.querySelectorAll(".role-card");
-const roleInfoItems = document.querySelectorAll(".role-info-item");
+// --- Modal Management ---
+function openModal(modal) {
+  if (!modal) return;
+  modal.classList.add("active");
+  // If map modal, update layout
+  if (modal === mapModal) {
+    refreshMapListModal();
+  }
+}
 
-roleCards.forEach(card => {
-  card.addEventListener("click", () => {
-    roleCards.forEach(c => c.classList.remove("active"));
-    card.classList.add("active");
-    selectedRole = card.getAttribute("data-role");
+function closeModal(modal) {
+  if (!modal) return;
+  modal.classList.remove("active");
+}
 
-    // Toggle Info Accordion
-    roleInfoItems.forEach(item => {
-      item.classList.remove("active");
-      if (item.getAttribute("data-role") === selectedRole) {
-        item.classList.add("active");
-      }
-    });
+document.querySelectorAll(".modal-close").forEach(btn => {
+  btn.addEventListener("click", (e) => {
+    closeModal(e.target.closest(".modal-overlay"));
   });
 });
 
+// Close modal on outside click
+window.addEventListener("click", (e) => {
+  if (e.target.classList.contains("modal-overlay")) {
+    closeModal(e.target);
+  }
+});
+
+// --- Role Selection Logic ---
+changeRoleBtn.addEventListener("click", () => openModal(roleModal));
+
+document.querySelectorAll(".role-option").forEach(opt => {
+  opt.addEventListener("click", () => {
+    const role = opt.getAttribute("data-role");
+    selectedRole = role;
+    // Update local UI state
+    document.querySelectorAll(".role-option").forEach(o => o.classList.remove("active"));
+    opt.classList.add("active");
+    
+    // If already in room, sync it
+    if (currentLobbyPlayers.length > 0) {
+      changeRole(role);
+      closeModal(roleModal);
+      // showToast(`Role diganti ke ${role.toUpperCase()}`, "success");
+    }
+  });
+});
+
+// --- Spell info logic ---
+spellInfoBtn.addEventListener("click", () => openModal(spellModal));
+
+// --- Map selection logic ---
+hostMapBtn.addEventListener("click", () => openModal(mapModal));
+
+const battleDurationSelect = document.getElementById("battle-duration");
+const saveMapSettingsBtn = document.getElementById("save-map-settings");
+
+saveMapSettingsBtn.addEventListener("click", () => {
+    const selectedMapId = document.querySelector(".map-card.active")?.getAttribute("data-id");
+    if (selectedMapId) {
+        updateSettings(battleDurationSelect.value, selectedMapId);
+        closeModal(mapModal);
+        // showToast("Pengaturan disimpan!", "success");
+    } else {
+        // showToast("Pilih map terlebih dahulu!", "warning");
+    }
+});
+
+// --- Room Join Logic ---
 joinBtn.addEventListener("click", () => {
   const roomId = roomInput.value.trim();
   const playerName = document.getElementById("player-name-input").value.trim();
   
-  // Validation Rules
-  const nameRegex = /^[a-zA-Z0-9 ]{3,12}$/;
-  const roomRegex = /^[a-zA-Z0-9]{1,10}$/;
-
-  if (!playerName) {
-    showToast("Silakan masukkan nama kamu!", "warning");
-    return;
-  }
-
-  if (!nameRegex.test(playerName)) {
-    showToast("Nama harus 3-12 karakter & Alfanumerik!", "error");
+  if (!playerName || playerName.length < 3) {
+    showToast("Nama minimal 3 karakter!", "warning");
     return;
   }
 
@@ -96,187 +140,178 @@ joinBtn.addEventListener("click", () => {
     return;
   }
 
-  if (!roomRegex.test(roomId)) {
-    showToast("ID Room harus Alfanumerik (maks 10 karakter)!", "error");
-    return;
-  }
-
-  // If validation pass
   joinRoom(roomId, playerName, selectedRole);
 
-  // TRIGGER FULLSCREEN (Hanya Fullscreen, tetap Portrait di Lobby)
-  // Ini menangkap User Gesture agar nanti saat In-game bisa otomatis Landscape
   try {
     if (document.documentElement.requestFullscreen) {
       document.documentElement.requestFullscreen().catch(() => {});
     }
+    if (screen.orientation && screen.orientation.lock) {
+      screen.orientation.lock("landscape").catch(() => {});
+    }
   } catch (e) { }
 
-  // Pancing ulang resize untuk menata ulang layout ukuran
   window.dispatchEvent(new Event("resize"));
-
-  joinBtn.style.display = "none";
-  document.getElementById("lobby-setup").style.display = "none";
-  // showToast("Menghubungkan ke Room...", "success");
-  
-  // Fullscreen pancingan dihilangkan (request user: jangan langsung FS di lobby)
-  /*
-  try {
-    if (document.documentElement.requestFullscreen) {
-      document.documentElement.requestFullscreen().catch(err => console.log("Lobby Fullscreen blocked:", err));
-    }
-  } catch (e) { }
-  */
 });
 
-const durationSelect = document.getElementById("battle-duration");
-const mapSelect = document.getElementById("map-select");
+// --- Global Lobby State ---
+let lastSelectedMapId = null;
 
-durationSelect.addEventListener("change", () => {
-  updateSettings(durationSelect.value, mapSelect.value);
-});
-
-mapSelect.addEventListener("change", () => {
-  const mapId = mapSelect.value;
-  updateSettings(durationSelect.value, mapId);
-  updateMapPreview(mapId); // Update pratinjau lokal segera untuk Host
-});
-
-onSettingsUpdated(({ duration, mapId }) => {
-  if (duration !== undefined) durationSelect.value = duration;
-  if (mapId !== undefined) {
-    if (mapSelect.value !== mapId) mapSelect.value = mapId;
-    updateMapPreview(mapId);
-  }
-});
-
-startBtn.addEventListener("click", () => {
-  // Fullscreen lagi buat host saat mulai (user gesture)
-  try {
-    if (document.documentElement.requestFullscreen) {
-      document.documentElement.requestFullscreen().catch(() => { });
-    }
-  } catch (e) { }
-  requestStartGame();
-});
-
+// --- Lobby Updates ---
 onLobbyUpdate(async ({ players, duration, selectedMapId }) => {
-  // Update Game Loop state for Live Transfers (Host/Role/Ghost cleanup)
+  currentLobbyPlayers = players;
+  lastSelectedMapId = selectedMapId;
   syncLobbyState(players);
 
-  const container = document.getElementById("players-container");
-  const lobbyPlayersList = document.getElementById("lobby-players-list");
-  const hostSettings = document.getElementById("host-settings");
+  // Transition UI if just joined
+  lobbySetup.style.display = "none";
+  playersContainer.style.display = "flex";
+  spellInfoBtn.style.display = "flex";
+  changeRoleBtn.style.display = "flex";
 
-  container.innerHTML = "";
-  lobbyPlayersList.style.display = "block";
-  const spellGuide = document.getElementById("lobby-spell-guide");
-  if (spellGuide) spellGuide.style.display = "block";
-  durationSelect.value = duration;
-  
-  // Refresh list jika dropdown kosong atau mapId baru tidak ada di list
-  const currentOptions = Array.from(mapSelect.options).map(opt => opt.value);
-  if (selectedMapId && !currentOptions.includes(selectedMapId)) {
-    await refreshMapList();
-  }
-  
-  // Cek apakah saya Host
   const me = players.find(p => p.id === getMyId());
   const isHost = me && me.isHost;
 
-  if (selectedMapId && Array.from(mapSelect.options).some(opt => opt.value === selectedMapId)) {
-    // Memang map valid dari server
-    mapSelect.value = selectedMapId;
-    updateMapPreview(selectedMapId);
-  } else if (isHost) {
-    // Jika server memberi map 'default'/tidak valid dan kita adalah host, 
-    // paksa sinkronisasi map pertama kita ke server!
-    if (mapSelect.options.length > 0) {
-      if (!mapSelect.value) mapSelect.selectedIndex = 0;
-      updateSettings(durationSelect.value, mapSelect.value);
-      updateMapPreview(mapSelect.value);
-    }
-  } else if (!isHost) {
-      // Client waiting for host to pick map
-      updateMapPreview(null);
-  }
+  // Render horizontal cards
+  playersContainer.innerHTML = players.map(p => `
+    <div class="player-card ${p.id === getMyId() ? 'local-player' : ''}">
+      ${p.isHost ? '<div class="host-tag">HOST</div>' : ''}
+      <div class="player-color-indicator" style="color: ${p.color}; background: ${p.color};"></div>
+      <img src="src/skills/ultimatum-${p.role}.png" class="role-icon-lg" />
+      <div class="role-badge" style="background: ${getRoleColor(p.role)}">${p.role}</div>
+      <div class="player-name">${p.name} ${p.id === getMyId() ? '' : ''}</div>
+    </div>
+  `).join("");
+
+  // Update Host/Guest Grouped Info
+  const mapDisplayName = (selectedMapId && selectedMapId !== "default" && selectedMapId !== "default.json") 
+    ? selectedMapId.replace(".json", "").replace(/[-_]/g, " ").toUpperCase() 
+    : "ARENA STARDUST";
+    
+  guestMapInfo.style.display = "flex"; // Always show for both
+  document.getElementById("map-name-display").innerText = `MAP: ${mapDisplayName}`;
+  document.getElementById("duration-display").innerText = `${Math.floor(duration/60)}:${(duration%60).toString().padStart(2, '0')}`;
 
   if (isHost) {
-    startBtn.style.display = "inline-block";
-    hostSettings.style.display = "block";
+    hostMapBtn.style.display = "flex";
+    startBtn.style.display = "flex";
+    battleDurationSelect.value = duration;
   } else {
+    hostMapBtn.style.display = "none";
     startBtn.style.display = "none";
-    hostSettings.style.display = "none";
   }
 
-  players.forEach(p => {
-    const div = document.createElement("div");
-    div.className = "player-entry";
-    div.innerHTML = `
-            <span style="color:${p.color}">${p.name}</span>
-            ${p.isHost ? '<span class="host-tag">HOST</span>' : ''}
-        `;
-    container.appendChild(div);
-  });
+  // Update Preview if map changed
+  if (selectedMapId) {
+    updateMapPreview(selectedMapId);
+  }
 });
 
-// Notify all players that host has started the match
+function getRoleColor(role) {
+    switch(role) {
+        case "damager": return "#ff4757";
+        case "tanker": return "#ffa502";
+        case "healer": return "#2ed573";
+        default: return "#ffffff";
+    }
+}
+
+// --- Map Preview & List Modal ---
+async function refreshMapListModal() {
+  const listContainer = document.getElementById("map-select-list");
+  if (!listContainer || isMapLoading) return;
+
+  isMapLoading = true;
+  listContainer.innerHTML = '<div style="color:#00f2fe; padding:20px; text-align:center; grid-column: span 2;">Memuat Arena...</div>';
+
+  try {
+    const res = await fetch("/api/maps");
+    const maps = await res.json();
+    
+    listContainer.innerHTML = ""; // Clear loader
+
+    for (const mapId of maps) {
+      const displayName = mapId.replace(".json", "").replace(/[-_]/g, " ").toUpperCase();
+      const isActive = mapId === lastSelectedMapId;
+
+      const card = document.createElement("div");
+      card.className = `map-card ${isActive ? 'active' : ''}`;
+      card.setAttribute("data-id", mapId);
+      card.innerHTML = `
+        <canvas class="map-card-canvas" width="200" height="120"></canvas>
+        <div class="map-card-label">${displayName}</div>
+      `;
+
+      card.addEventListener("click", () => {
+        document.querySelectorAll(".map-card").forEach(c => c.classList.remove("active"));
+        card.classList.add("active");
+        lastSelectedMapId = mapId;
+        updateMapPreview(mapId);
+      });
+
+      listContainer.appendChild(card);
+
+      // Render mini preview immediately for this card
+      const miniCanvas = card.querySelector(".map-card-canvas");
+      fetch(`/api/maps/${mapId}`)
+        .then(r => r.json())
+        .then(mapData => renderMapPreview(miniCanvas, mapData))
+        .catch(e => console.error("Mini preview error:", e));
+    }
+
+  } catch (e) {
+    listContainer.innerHTML = '<div style="color:#ff4757; padding:20px; text-align:center; grid-column: span 2;">Gagal memuat maps</div>';
+  } finally {
+    isMapLoading = false;
+  }
+}
+
+// --- Rest of the logic (Game Start, Loading, etc) ---
+startBtn.addEventListener("click", () => {
+  requestStartGame();
+});
+
 onMatchPreparing(() => {
   const loadingOverlay = document.getElementById("match-loading-overlay");
-  const loadingStatus = document.querySelector(".loading-status");
   if (loadingOverlay) loadingOverlay.style.display = "flex";
-  if (loadingStatus) loadingStatus.innerText = "MENYIAPKAN ARENA...";
 });
 
-// When game start init (Preparing Arena)
 onMatchFound((data) => {
   const { duration, players, mapData } = data;
-  
-  // 1. Show Loading Overlay
   const loadingOverlay = document.getElementById("match-loading-overlay");
   const loadingList = document.getElementById("loading-player-list");
-  const loadingStatus = document.querySelector(".loading-status");
   
   if (loadingOverlay) loadingOverlay.style.display = "flex";
-  if (loadingStatus) loadingStatus.innerText = "MEMUAT ASSET MAP...";
   
   if (loadingList) {
     loadingList.innerHTML = players.map(p => `
       <div class="loading-player-item" id="lp-${p.id}">
-        <span class="lp-name" style="color:${p.color}">${p.name} ${p.id === getMyId() ? '(KAMU)' : ''}</span>
+        <span class="lp-name" style="color:${p.color}">${p.name} ${p.id === getMyId() ? '' : ''}</span>
         <span class="lp-status loading" id="lp-status-${p.id}">LOADING...</span>
       </div>
     `).join("");
   }
 
-  // Use Timeout to allow UI thread to paint the loading screen before blocking
   setTimeout(() => {
-    // 2. Init Config (Load maps & assets)
     initGameConfig(duration, players, mapData);
-
     lobbyMenu.style.display = "none";
     if (document.getElementById("lobby-bg")) document.getElementById("lobby-bg").style.display = "none";
     gameContainer.style.display = "block";
 
-    // Attempt Fullscreen and Landscape lock
     try {
       if (document.documentElement.requestFullscreen) {
-        document.documentElement.requestFullscreen().catch(err => console.log("Fullscreen API ditolak/gak support:", err));
+        document.documentElement.requestFullscreen().catch(() => {});
       }
       if (screen.orientation && screen.orientation.lock) {
-        screen.orientation.lock("landscape").catch(err => console.log("Landscape Lock API ditolak/gak support:", err));
+        screen.orientation.lock("landscape").catch(() => {});
       }
     } catch (e) { }
 
-    // Pancing ulang resize untuk menata ulang layout ukuran setelah Fullscreen
     window.dispatchEvent(new Event("resize"));
-
-    // 3. Signal Server that I'm ready
     emitPlayerReady();
   }, 50);
 });
 
-// Update Loading Status from other players
 onMatchLoadingUpdate(({ readyPlayerIds }) => {
   readyPlayerIds.forEach(id => {
     const statusEl = document.getElementById(`lp-status-${id}`);
@@ -287,7 +322,6 @@ onMatchLoadingUpdate(({ readyPlayerIds }) => {
   });
 });
 
-// Real Game Start (Timers Begin)
 onMatchStartFinal(() => {
   const loadingOverlay = document.getElementById("match-loading-overlay");
   if (loadingOverlay) {
@@ -297,26 +331,8 @@ onMatchStartFinal(() => {
       loadingOverlay.style.opacity = "1";
     }, 500);
   }
-  
   startGame();
 });
-
-  // Prevent selection/copy behavior on skill buttons
-  document.querySelectorAll(".btn").forEach(btn => {
-    const prevent = (e) => {
-      // Allow the click event to fire but prevent selection
-      if (e.type === "touchstart" || e.button === 0) {
-        // We don't want to preventDefault on click/touchstart entirely 
-        // because we want the game's input listeners to still work.
-        // However, most browsers skip selection if preventDefault is called on mousedown.
-      }
-    };
-    btn.addEventListener("mousedown", (e) => {
-      // If we preventDefault here, it might break the game's click listener if it's on the same element.
-      // Let's test if user-select: none in CSS is enough. 
-      // User said it still happens, so maybe we need to be more aggressive.
-    });
-  });
 
 const returnLobbyBtn = document.getElementById("return-lobby-btn");
 if (returnLobbyBtn) {
@@ -326,72 +342,56 @@ if (returnLobbyBtn) {
 }
 
 onReturnToLobby(() => {
-  stopGame(); // Stop game loop
-  
-  // Sembunyikan UI Game & Tampilkan UI Lobby
+  stopGame();
   document.getElementById("game-over-overlay").style.display = "none";
   document.getElementById("game-container").style.display = "none";
   document.getElementById("lobby-menu").style.display = "flex";
   if (document.getElementById("lobby-bg")) document.getElementById("lobby-bg").style.display = "block";
   
-  // Karena kembali ke lobby, reset text game over
-  // showToast("Berhasil kembali ke Lobby!", "success");
+  // Show waiting room directly (skip setup)
+  lobbySetup.style.display = "none";
+  playersContainer.style.display = "flex";
+  spellInfoBtn.style.display = "flex";
+  changeRoleBtn.style.display = "flex";
 
-  // Kembalikan ke Portrait tapi TETAP Fullscreen (Request User)
+  // Maintain Fullscreen & Landscape
   try {
-    if (screen.orientation && screen.orientation.lock) {
-      screen.orientation.lock("portrait").catch(() => {
-        // Jika gagal lock portrait, coba unlock saja
-        if (screen.orientation.unlock) screen.orientation.unlock();
-      });
+    if (document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen().catch(() => {});
     }
-  } catch (e) {}
+    if (screen.orientation && screen.orientation.lock) {
+      screen.orientation.lock("landscape").catch(() => {});
+    }
+  } catch (e) { }
+
+  window.dispatchEvent(new Event("resize"));
 });
 
-async function updateMapPreview(mapId) {
-  const container = document.getElementById("map-preview-container");
-  const canvas = document.getElementById("map-preview-canvas");
-  if (!container || !canvas) return;
 
-  container.style.display = "flex";
+// Reuse existing updateMapPreview and renderMapPreview functions but adapted
+async function updateMapPreview(mapId) {
+  const canvas = document.getElementById("map-preview-canvas");
+  if (!canvas) return;
 
   if (!mapId || mapId === "default") {
-    // Hardcoded GALAXY (Default) Preview Data
-    const galaxyData = {
-      width: 1800,
-      height: 900,
-      obstacles: [
-        { x: 0, y: -20, w: 1800, h: 20, type: "border" },
-        { x: 0, y: 900, w: 1800, h: 20, type: "border" },
-        { x: -20, y: 0, w: 20, h: 900, type: "border" },
-        { x: 1800, y: 0, w: 20, h: 900, type: "border" }
-      ],
-      towers: [
-        { x: 400, y: 440, size: 80, label: "TOWER 1" },
-        { x: 1400, y: 440, size: 80, label: "TOWER 2" },
-        { x: 900, y: 820, size: 80, label: "BASE" }
-      ]
-    };
-    renderMapPreview(canvas, galaxyData);
+    // Fallback Galaxy
+    renderMapPreview(canvas, { width: 1800, height: 900, obstacles: [], towers: [] });
     return;
   }
 
   try {
     const res = await fetch(`/api/maps/${mapId}`);
-    if (!res.ok) throw new Error("Failed to fetch map data");
     const mapData = await res.json();
     renderMapPreview(canvas, mapData);
   } catch (e) {
     console.warn("Preview failed:", e);
-    container.style.display = "none";
   }
 }
 
 function renderMapPreview(canvas, mapData) {
+  if (!canvas) return;
   const ctx = canvas.getContext("2d");
   const margin = 10;
-  
-  // Kalkulasi Bounding Box Terluar (termasuk border negatif)
   let minX = 0, minY = 0;
   let maxX = mapData.width || 800;
   let maxY = mapData.height || 600;
@@ -407,27 +407,17 @@ function renderMapPreview(canvas, mapData) {
   
   const totalW = maxX - minX;
   const totalH = maxY - minY;
-
-  // Clear
   ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Scaling logic (Fit to canvas)
-  const scale = Math.min(
-    (canvas.width - margin * 2) / totalW,
-    (canvas.height - margin * 2) / totalH
-  );
-
+  const scale = Math.min((canvas.width - margin * 2) / totalW, (canvas.height - margin * 2) / totalH);
   const drawX = (canvas.width - totalW * scale) / 2;
   const drawY = (canvas.height - totalH * scale) / 2;
 
-  // Helper untuk konversi koordinat map ke koordinat canvas preview
   const toCanvasX = (mx) => drawX + (mx - minX) * scale;
   const toCanvasY = (my) => drawY + (my - minY) * scale;
 
-  // Background Grid (Technical look)
   ctx.strokeStyle = "rgba(0, 242, 254, 0.05)";
-  ctx.lineWidth = 1;
   const gridStep = 40 * scale;
   for (let x = drawX; x <= drawX + totalW * scale; x += gridStep) {
     ctx.beginPath(); ctx.moveTo(x, drawY); ctx.lineTo(x, drawY + totalH * scale); ctx.stroke();
@@ -436,110 +426,20 @@ function renderMapPreview(canvas, mapData) {
     ctx.beginPath(); ctx.moveTo(drawX, y); ctx.lineTo(drawX + totalW * scale, y); ctx.stroke();
   }
 
-  // Draw Obstacles (Neon Green/Grey)
   if (mapData.obstacles) {
     mapData.obstacles.forEach(obs => {
       ctx.fillStyle = obs.type === "border" ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 242, 254, 0.4)";
-      ctx.fillRect(
-        toCanvasX(obs.x),
-        toCanvasY(obs.y),
-        obs.w * scale,
-        obs.h * scale
-      );
-      if (obs.type !== "border") {
-        ctx.strokeStyle = "#00f2fe";
-        ctx.strokeRect(toCanvasX(obs.x), toCanvasY(obs.y), obs.w * scale, obs.h * scale);
-      }
+      ctx.fillRect(toCanvasX(obs.x), toCanvasY(obs.y), obs.w * scale, obs.h * scale);
     });
   }
 
-  // Draw Towers (Cyan / Base Gold)
   if (mapData.towers) {
     mapData.towers.forEach(t => {
-      const tx = toCanvasX(t.x + t.size / 2);
-      const ty = toCanvasY(t.y + t.size / 2);
-      const tSize = (t.size / 2) * scale;
-
       ctx.beginPath();
-      ctx.arc(tx, ty, tSize, 0, Math.PI * 2);
-      if (t.label === "BASE") {
-        ctx.fillStyle = "#f1c40f";
-        ctx.shadowBlur = 10; ctx.shadowColor = "gold";
-      } else {
-        ctx.fillStyle = "#00d2ff";
-        ctx.shadowBlur = 5; ctx.shadowColor = "#00d2ff";
-      }
-      ctx.fill();
-      ctx.shadowBlur = 0;
-    });
-  }
-
-  // Draw Spawns (Small white dots)
-  if (mapData.playerSpawns) {
-    mapData.playerSpawns.forEach(s => {
-      ctx.fillStyle = "white";
-      ctx.beginPath();
-      ctx.arc(toCanvasX(s.x), toCanvasY(s.y), 2, 0, Math.PI * 2);
+      ctx.arc(toCanvasX(t.x + t.size / 2), toCanvasY(t.y + t.size / 2), (t.size / 2) * scale, 0, Math.PI * 2);
+      ctx.fillStyle = t.label === "BASE" ? "#f1c40f" : "#00d2ff";
       ctx.fill();
     });
   }
 }
 
-async function refreshMapList() {
-  if (isMapLoading) return;
-  
-  const mapSelect = document.getElementById("map-select");
-  if (!mapSelect) return;
-
-  isMapLoading = true;
-  try {
-    // Show loading state
-    mapSelect.innerHTML = '<option value="">Memuat maps...</option>';
-
-    const res = await fetch("/api/maps");
-    if (!res.ok) throw new Error("Server response not OK");
-    
-    const maps = await res.json();
-    
-    // Clear and build list from server maps only
-    mapSelect.innerHTML = '';
-    
-    if (maps.length === 0) {
-      mapSelect.innerHTML = '<option value="">Tidak ada map tersedia</option>';
-    } else {
-      maps.forEach(mapFile => {
-        const displayName = mapFile
-          .replace(".json", "")
-          .replace(/[-_]/g, " ")
-          .toUpperCase();
-
-        const option = document.createElement("option");
-        option.value = mapFile;
-        option.innerText = displayName;
-        mapSelect.appendChild(option);
-      });
-      
-      // Auto-select first map and trigger preview/sync
-      if (!mapSelect.value && maps.length > 0) {
-        mapSelect.selectedIndex = 0;
-        mapSelect.dispatchEvent(new Event("change"));
-      }
-    }
-  } catch (e) {
-    console.warn("Failed to refresh maps:", e);
-    mapSelect.innerHTML = '<option value="">Gagal memuat map</option>';
-  } finally {
-    isMapLoading = false;
-  }
-}
-
-// Inisialisasi awal segera (Module execution)
-refreshMapList();
-
-// 🔥 pastikan DOM sudah siap (untuk pancingan tambahan jika diperlukan)
-window.onload = async () => {
-  // refreshMapList() sudah dipanggil di level modul, tapi panggil lagi jika list masih kosong
-  if (document.getElementById("map-select")?.options.length <= 1) {
-    await refreshMapList();
-  }
-};
