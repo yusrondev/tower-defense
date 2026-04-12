@@ -716,12 +716,12 @@
       margin-left: 12px;
     }
 
-    /* Cinematic Wave Announcement (Center 3D Glass) */
+    /* Cinematic Wave Announcement (Smaller & Non-obstructive) */
     #wave-announcement-overlay {
       position: absolute;
-      top: 30%;
+      top: 15px;
       left: 50%;
-      transform: translate(-50%, -50%);
+      transform: translateX(-50%);
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -729,41 +729,46 @@
       z-index: 100;
       pointer-events: none;
       opacity: 0;
-      transition: all 0.4s ease-out;
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
       font-family: 'Outfit', sans-serif;
     }
 
     #wave-announcement-overlay.show {
       opacity: 1;
-      top: 35%;
+      top: 60px;
     }
 
     .glass-3d-box {
-      background: rgba(0, 0, 0, 0.6);
-      border-radius: 12px;
-      padding: 15px 30px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 5px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      background: rgba(0, 0, 0, 0.4);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
       border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 4px 16px;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 15px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
     }
 
     .announcement-label {
-      font-size: 10px;
+      font-size: 11px;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 2px;
-      color: rgba(255, 255, 255, 0.5);
+      color: rgba(255, 255, 255, 0.6);
+      white-space: nowrap;
     }
 
     #announcement-timer-val {
-      font-size: 40px;
+      font-size: 20px;
       font-weight: 900;
       color: #ff4757;
-      text-shadow: 0 0 20px rgba(255, 71, 87, 0.4);
+      text-shadow: 0 0 10px rgba(255, 71, 87, 0.5);
       line-height: 1;
+      border-left: 1px solid rgba(255, 255, 255, 0.2);
+      padding-left: 15px;
     }
 
     /* Leaderboard HUD (Top Left - Vertical) */
@@ -1337,36 +1342,43 @@
     }
     /* Spell Guide UI */
     #lobby-spell-guide {
-      margin-top: 20px;
-      background: rgba(0, 0, 0, 0.2);
-      border-radius: 16px;
-      padding: 15px;
-      border: 1px solid rgba(255, 255, 255, 0.05);
-      animation: slideInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      margin-top: 25px;
+      background: rgba(255, 255, 255, 0.03);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      animation: slideInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      width: 100%;
+      box-sizing: border-box;
+      display: none; /* Initially hidden */
     }
 
     .guide-title {
       font-size: 11px;
       text-transform: uppercase;
-      letter-spacing: 2px;
-      opacity: 0.5;
-      margin-bottom: 12px;
+      letter-spacing: 3px;
+      color: #00f2fe;
+      margin-bottom: 20px;
       text-align: center;
-      font-weight: 800;
+      font-weight: 900;
+      opacity: 0.8;
     }
 
     .spell-list {
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 16px;
     }
 
     .spell-guide-item {
       display: flex;
       align-items: center;
-      gap: 15px;
+      gap: 10px;
       transition: all 0.3s;
-      padding: 5px 0;
+      padding: 8px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.02);
     }
 
     .spell-guide-item:hover {
@@ -1397,14 +1409,18 @@
     }
 
     .spell-name {
-      font-size: 12px;
+      font-size: 14px;
       font-weight: 800;
-      margin-bottom: 2px;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
 
     .spell-effect {
-      font-size: 10px;
-      opacity: 0.7;
+      font-size: 11px;
+      opacity: 0.8;
+      line-height: 1.4;
+      color: #ccc;
     }
 
     .spell-role-recommend {
@@ -1750,37 +1766,37 @@
         <strong style="font-size: 13px; opacity: 0.6; text-transform: uppercase; letter-spacing: 1px;">Pemain
           Menunggu</strong>
         <div id="players-container" style="margin-top:12px;"></div>
+      </div>
 
-        <!-- Spell Guide Intel -->
-        <div id="lobby-spell-guide">
-          <div class="guide-title">SPELLS GUIDE</div>
-          <div class="spell-list">
-            <div class="spell-guide-item">
-              <div class="spell-orb red">★</div>
-              <div class="spell-details">
-                <div class="spell-name" style="color:#e74c3c">POWER SPELL</div>
-                <div class="spell-effect">Meningkatkan Bullet Damage permanen (stacking).</div>
-              </div>
-              <div class="spell-role-recommend rec-damager">Damager Only</div>
+      <!-- Spell Guide Intel -->
+      <div id="lobby-spell-guide">
+        <div class="guide-title">SPELLS GUIDE</div>
+        <div class="spell-list">
+          <div class="spell-guide-item">
+            <div class="spell-orb red">★</div>
+            <div class="spell-details">
+              <div class="spell-name" style="color:#e74c3c">POWER SPELL</div>
+              <div class="spell-effect">Meningkatkan Bullet Damage permanen (stacking).</div>
             </div>
-            
-            <div class="spell-guide-item">
-              <div class="spell-orb yellow">⚡</div>
-              <div class="spell-details">
-                <div class="spell-name" style="color:#f1c40f">ENERGY SPELL</div>
-                <div class="spell-effect">Memulihkan Energy untuk tembakan & skill ultimatum.</div>
-              </div>
-              <div class="spell-role-recommend rec-all">Semua Role</div>
+            <div class="spell-role-recommend rec-damager">Damager Only</div>
+          </div>
+          
+          <div class="spell-guide-item">
+            <div class="spell-orb yellow">⚡</div>
+            <div class="spell-details">
+              <div class="spell-name" style="color:#f1c40f">ENERGY SPELL</div>
+              <div class="spell-effect">Memulihkan Energy untuk tembakan & skill ultimatum.</div>
             </div>
+            <div class="spell-role-recommend rec-all">Semua Role</div>
+          </div>
 
-            <div class="spell-guide-item">
-              <div class="spell-orb green">+</div>
-              <div class="spell-details">
-                <div class="spell-name" style="color:#2ecc71">HEALTH SPELL</div>
-                <div class="spell-effect">Memulihkan HP secara instan saat pertempuran.</div>
-              </div>
-              <div class="spell-role-recommend rec-all">Semua Role</div>
+          <div class="spell-guide-item">
+            <div class="spell-orb green">+</div>
+            <div class="spell-details">
+              <div class="spell-name" style="color:#2ecc71">HEALTH SPELL</div>
+              <div class="spell-effect">Memulihkan HP secara instan saat pertempuran.</div>
             </div>
+            <div class="spell-role-recommend rec-all">Semua Role</div>
           </div>
         </div>
       </div>

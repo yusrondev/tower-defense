@@ -170,6 +170,8 @@ onLobbyUpdate(async ({ players, duration, selectedMapId }) => {
 
   container.innerHTML = "";
   lobbyPlayersList.style.display = "block";
+  const spellGuide = document.getElementById("lobby-spell-guide");
+  if (spellGuide) spellGuide.style.display = "block";
   durationSelect.value = duration;
   
   // Refresh list jika dropdown kosong atau mapId baru tidak ada di list
