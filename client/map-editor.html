@@ -366,11 +366,64 @@
       background: #111;
       position: relative;
       overflow: hidden;
+      /* Force hard clip — prevents GPU-composited canvas from bleeding outside viewport
+         into the sidebar. clip-path always clips even will-change:transform children. */
+      clip-path: inset(0);
+      isolation: isolate;
     }
 
-    canvas {
+    #editorCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
       box-shadow: 0 0 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04);
       background: #0a0a0a;
+      transform-origin: 0 0;
+      will-change: transform;
+      cursor: crosshair;
+      display: none; /* shown by JS */
+    }
+
+    /* Generic canvas (preview thumbnails in sidebar + properties pane) */
+    canvas:not(#editorCanvas) {
+      display: block;
+      border-radius: 4px;
+    }
+
+    /* Zoom indicator badge */
+    #zoom-indicator-wrap {
+      position: absolute;
+      bottom: 12px;
+      right: 12px;
+      background: rgba(18,18,20,0.88);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      font-family: 'Outfit', sans-serif;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      backdrop-filter: blur(6px);
+      pointer-events: none;
+      z-index: 20;
+    }
+
+    #zoom-indicator { color: var(--accent); }
+
+    /* Zoom hint tooltip */
+    #zoom-hint {
+      position: absolute;
+      bottom: 40px;
+      right: 12px;
+      font-size: 10px;
+      color: var(--text-muted);
+      font-style: italic;
+      pointer-events: none;
+      z-index: 20;
+      opacity: 0.6;
     }
 
     /* ══════════════════════ STATUS BAR ══════════════════════ */
@@ -504,8 +557,6 @@
       box-shadow: 0 10px 28px rgba(0,242,254,0.35);
       filter: brightness(1.1);
     }
-
-    #editorCanvas { display: none; }
 
     /* ══════════════════════ CONTEXT MENU ══════════════════════ */
     #context-menu {
@@ -776,6 +827,13 @@
       </div>
 
       <canvas id="editorCanvas" width="1800" height="900"></canvas>
+
+      <!-- Zoom indicator -->
+      <div id="zoom-indicator-wrap">
+        <span>🔍</span>
+        <span id="zoom-indicator">50%</span>
+      </div>
+      <div id="zoom-hint">Scroll to zoom · Middle-click / Space+drag to pan · Ctrl+0 to reset</div>
 
       <!-- Context Menu -->
       <div id="context-menu">

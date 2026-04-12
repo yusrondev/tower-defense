@@ -96,6 +96,27 @@ let currentLoadedMap = null; // Track filename if loaded
 let mapWidth = 1800;
 let mapHeight = 900;
 
+// Zoom / Pan state
+let viewZoom = 0.5;  // initial fit
+let viewPanX = 0;
+let viewPanY = 0;
+let isPanning = false;
+let panStartX = 0;
+let panStartY = 0;
+const ZOOM_MIN = 0.1;
+const ZOOM_MAX = 4;
+
+function applyViewTransform() {
+    canvas.style.transform = `translate(${viewPanX}px, ${viewPanY}px) scale(${viewZoom})`;
+    canvas.style.transformOrigin = '0 0';
+    updateZoomIndicator();
+}
+
+function updateZoomIndicator() {
+    const el = document.getElementById('zoom-indicator');
+    if (el) el.textContent = Math.round(viewZoom * 100) + '%';
+}
+
 // Map state
 let obstacles = [];
 function initBorders() {
@@ -183,15 +204,10 @@ function setOuterBgImage(dataUrl) {
     outerBgImage = dataUrl;
     outerBgImageObj = null;
     
-    // Apply CSS to viewport for preview
+    // Clear any CSS background from viewport (we render outer bg in the draw() canvas layer instead)
     const viewport = document.getElementById("editor-viewport");
     if (viewport) {
-        if (outerBgImage) {
-            viewport.style.backgroundImage = `url(${outerBgImage})`;
-            viewport.style.backgroundRepeat = "repeat";
-        } else {
-            viewport.style.backgroundImage = "none";
-        }
+        viewport.style.backgroundImage = "none";
     }
 
     if (dataUrl) {
@@ -216,6 +232,7 @@ function setOuterBgImage(dataUrl) {
 
 outerColorInput.addEventListener("input", (e) => {
     outerBgColor = e.target.value;
+    // Apply color to viewport background so it shows around the canvas edges
     const viewport = document.getElementById("editor-viewport");
     if (viewport) viewport.style.backgroundColor = outerBgColor;
     draw();
@@ -830,6 +847,8 @@ function showWelcomeState() {
 function showCanvasState() {
     welcomeOverlay.style.display = "none";
     canvas.style.display = "block";
+    // Re-center the canvas in the viewport when first shown
+    requestAnimationFrame(() => centerCanvas());
 }
 
 async function createNewMap() {
@@ -891,15 +910,75 @@ btnDuplicate.addEventListener("click", () => {
 });
 
 function getMousePos(e, doSnap = true) {
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    const rawX = (e.clientX - rect.left) * scaleX;
-    const rawY = (e.clientY - rect.top) * scaleY;
+    const viewport = document.getElementById('editor-viewport');
+    const vpRect = viewport.getBoundingClientRect();
+    // Translate from screen coords → canvas world coords
+    const rawX = (e.clientX - vpRect.left - viewPanX) / viewZoom;
+    const rawY = (e.clientY - vpRect.top  - viewPanY) / viewZoom;
     return {
         x: doSnap ? snap(rawX) : rawX,
         y: doSnap ? snap(rawY) : rawY
     };
+}
+
+// ─── Zoom on mouse wheel ───
+const editorViewport = document.getElementById('editor-viewport');
+editorViewport.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+    const newZoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, viewZoom * factor));
+
+    // Zoom toward cursor position
+    const vpRect = editorViewport.getBoundingClientRect();
+    const mouseX = e.clientX - vpRect.left;
+    const mouseY = e.clientY - vpRect.top;
+
+    viewPanX = mouseX - (mouseX - viewPanX) * (newZoom / viewZoom);
+    viewPanY = mouseY - (mouseY - viewPanY) * (newZoom / viewZoom);
+    viewZoom = newZoom;
+
+    applyViewTransform();
+}, { passive: false });
+
+// ─── Pan with middle mouse button ───
+editorViewport.addEventListener('mousedown', (e) => {
+    if (e.button === 1) { // Middle button
+        e.preventDefault();
+        isPanning = true;
+        panStartX = e.clientX - viewPanX;
+        panStartY = e.clientY - viewPanY;
+        editorViewport.style.cursor = 'grabbing';
+    }
+});
+
+window.addEventListener('mousemove', (e) => {
+    if (isPanning) {
+        viewPanX = e.clientX - panStartX;
+        viewPanY = e.clientY - panStartY;
+        applyViewTransform();
+    }
+});
+
+window.addEventListener('mouseup', (e) => {
+    if (e.button === 1) {
+        isPanning = false;
+        editorViewport.style.cursor = '';
+    }
+});
+
+// ─── Reset zoom with double-click on viewport background ───
+editorViewport.addEventListener('dblclick', (e) => {
+    if (e.target !== canvas) {
+        viewZoom = 0.5;
+        centerCanvas();
+    }
+});
+
+function centerCanvas() {
+    const vpRect = editorViewport.getBoundingClientRect();
+    viewPanX = (vpRect.width  - canvas.width  * viewZoom) / 2;
+    viewPanY = (vpRect.height - canvas.height * viewZoom) / 2;
+    applyViewTransform();
 }
 
 function findItemAt(x, y) {
@@ -1113,7 +1192,81 @@ document.addEventListener("keydown", (e) => {
             draw();
         }
     }
+
+    // ─── Zoom shortcuts ───
+    if (e.ctrlKey) {
+        if (e.key === "0") {
+            e.preventDefault();
+            // Ctrl+0 → fit/center
+            viewZoom = 0.5;
+            centerCanvas();
+        } else if (e.key === "=" || e.key === "+") {
+            e.preventDefault();
+            const vp = document.getElementById('editor-viewport').getBoundingClientRect();
+            const cx = vp.width / 2, cy = vp.height / 2;
+            const newZ = Math.min(ZOOM_MAX, viewZoom * 1.2);
+            viewPanX = cx - (cx - viewPanX) * (newZ / viewZoom);
+            viewPanY = cy - (cy - viewPanY) * (newZ / viewZoom);
+            viewZoom = newZ;
+            applyViewTransform();
+        } else if (e.key === "-") {
+            e.preventDefault();
+            const vp = document.getElementById('editor-viewport').getBoundingClientRect();
+            const cx = vp.width / 2, cy = vp.height / 2;
+            const newZ = Math.max(ZOOM_MIN, viewZoom / 1.2);
+            viewPanX = cx - (cx - viewPanX) * (newZ / viewZoom);
+            viewPanY = cy - (cy - viewPanY) * (newZ / viewZoom);
+            viewZoom = newZ;
+            applyViewTransform();
+        }
+    }
+
+    // ─── Space: switch to panning mode ───
+    if (e.code === "Space" && !["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)) {
+        e.preventDefault();
+        document.getElementById('editor-viewport').style.cursor = 'grab';
+    }
 });
+
+// ─── Space+drag pan ───
+let spaceHeld = false;
+document.addEventListener("keydown", (e) => {
+    if (e.code === "Space" && !["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)) {
+        spaceHeld = true;
+    }
+});
+document.addEventListener("keyup", (e) => {
+    if (e.code === "Space") {
+        spaceHeld = false;
+        document.getElementById('editor-viewport').style.cursor = '';
+    }
+});
+
+const editorViewportForSpace = document.getElementById('editor-viewport');
+let spaceMouseStart = null;
+editorViewportForSpace.addEventListener('mousedown', (e) => {
+    if (spaceHeld && e.button === 0) {
+        e.preventDefault();
+        spaceMouseStart = { x: e.clientX - viewPanX, y: e.clientY - viewPanY };
+        editorViewportForSpace.style.cursor = 'grabbing';
+    }
+});
+
+window.addEventListener('mousemove', (e_) => {
+    if (spaceHeld && spaceMouseStart) {
+        viewPanX = e_.clientX - spaceMouseStart.x;
+        viewPanY = e_.clientY - spaceMouseStart.y;
+        applyViewTransform();
+    }
+});
+
+window.addEventListener('mouseup', () => {
+    spaceMouseStart = null;
+    if (spaceHeld) editorViewportForSpace.style.cursor = 'grab';
+});
+
+// Suppress dup event listener block above — keep single one below
+const _dummy = 0;
 
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -1377,13 +1530,13 @@ canvas.oncontextmenu = (e) => {
         setTool("select", btnSelect);
     }
 
-    // Calculate position relative to viewport container
+    // Calculate position relative to viewport container (no scroll — zoom/pan via transform)
     const viewport = document.getElementById("editor-viewport");
     const rect = viewport.getBoundingClientRect();
     
     ctxMenu.style.display = "block";
-    ctxMenu.style.left = (e.clientX - rect.left + viewport.scrollLeft) + "px";
-    ctxMenu.style.top = (e.clientY - rect.top + viewport.scrollTop) + "px";
+    ctxMenu.style.left = (e.clientX - rect.left) + "px";
+    ctxMenu.style.top  = (e.clientY - rect.top)  + "px";
 };
 
 window.addEventListener("click", () => {
@@ -1406,4 +1559,5 @@ document.getElementById("cm-clear-sel").onclick = () => {
 // Initial load
 loadMapList();
 showWelcomeState();
-// draw(); // Don't draw initially as canvas is hidden
+// Center canvas on load (after render so viewport has dimensions)
+requestAnimationFrame(() => centerCanvas());
