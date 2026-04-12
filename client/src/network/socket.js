@@ -125,6 +125,10 @@ export function onMatchFound(callback) {
   });
 }
 
+export function onMatchPreparing(callback) {
+  if (socket) socket.on("matchPreparing", callback);
+}
+
 export function joinRoom(roomId, playerName, role) {
   socket.emit("joinRoom", { roomId, playerName, role });
 }

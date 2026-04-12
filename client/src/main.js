@@ -1,4 +1,4 @@
-import { connectSocket, joinRoom, requestStartGame, updateSettings, onSettingsUpdated, onLobbyUpdate, onMatchFound, getMyId, requestReturnLobby, onReturnToLobby, emitPlayerReady, onMatchLoadingUpdate, onMatchStartFinal } from "./network/socket.js";
+import { connectSocket, joinRoom, requestStartGame, updateSettings, onSettingsUpdated, onLobbyUpdate, onMatchFound, getMyId, requestReturnLobby, onReturnToLobby, emitPlayerReady, onMatchLoadingUpdate, onMatchStartFinal, onMatchPreparing } from "./network/socket.js";
 import { initGameConfig, startGame, stopGame, syncLobbyState } from "./game/gameLoop.js";
 await connectSocket();
 
@@ -218,6 +218,14 @@ onLobbyUpdate(async ({ players, duration, selectedMapId }) => {
   });
 });
 
+// Notify all players that host has started the match
+onMatchPreparing(() => {
+  const loadingOverlay = document.getElementById("match-loading-overlay");
+  const loadingStatus = document.querySelector(".loading-status");
+  if (loadingOverlay) loadingOverlay.style.display = "flex";
+  if (loadingStatus) loadingStatus.innerText = "MENYIAPKAN ARENA...";
+});
+
 // When game start init (Preparing Arena)
 onMatchFound((data) => {
   const { duration, players, mapData } = data;
@@ -225,8 +233,11 @@ onMatchFound((data) => {
   // 1. Show Loading Overlay
   const loadingOverlay = document.getElementById("match-loading-overlay");
   const loadingList = document.getElementById("loading-player-list");
+  const loadingStatus = document.querySelector(".loading-status");
   
   if (loadingOverlay) loadingOverlay.style.display = "flex";
+  if (loadingStatus) loadingStatus.innerText = "MEMUAT ASSET MAP...";
+  
   if (loadingList) {
     loadingList.innerHTML = players.map(p => `
       <div class="loading-player-item" id="lp-${p.id}">
@@ -236,28 +247,31 @@ onMatchFound((data) => {
     `).join("");
   }
 
-  // 2. Init Config (Load maps & assets)
-  initGameConfig(duration, players, mapData);
+  // Use Timeout to allow UI thread to paint the loading screen before blocking
+  setTimeout(() => {
+    // 2. Init Config (Load maps & assets)
+    initGameConfig(duration, players, mapData);
 
-  lobbyMenu.style.display = "none";
-  if (document.getElementById("lobby-bg")) document.getElementById("lobby-bg").style.display = "none";
-  gameContainer.style.display = "block";
+    lobbyMenu.style.display = "none";
+    if (document.getElementById("lobby-bg")) document.getElementById("lobby-bg").style.display = "none";
+    gameContainer.style.display = "block";
 
-  // Attempt Fullscreen and Landscape lock
-  try {
-    if (document.documentElement.requestFullscreen) {
-      document.documentElement.requestFullscreen().catch(err => console.log("Fullscreen API ditolak/gak support:", err));
-    }
-    if (screen.orientation && screen.orientation.lock) {
-      screen.orientation.lock("landscape").catch(err => console.log("Landscape Lock API ditolak/gak support:", err));
-    }
-  } catch (e) { }
+    // Attempt Fullscreen and Landscape lock
+    try {
+      if (document.documentElement.requestFullscreen) {
+        document.documentElement.requestFullscreen().catch(err => console.log("Fullscreen API ditolak/gak support:", err));
+      }
+      if (screen.orientation && screen.orientation.lock) {
+        screen.orientation.lock("landscape").catch(err => console.log("Landscape Lock API ditolak/gak support:", err));
+      }
+    } catch (e) { }
 
-  // Pancing ulang resize untuk menata ulang layout ukuran setelah Fullscreen
-  window.dispatchEvent(new Event("resize"));
+    // Pancing ulang resize untuk menata ulang layout ukuran setelah Fullscreen
+    window.dispatchEvent(new Event("resize"));
 
-  // 3. Signal Server that I'm ready
-  emitPlayerReady();
+    // 3. Signal Server that I'm ready
+    emitPlayerReady();
+  }, 50);
 });
 
 // Update Loading Status from other players

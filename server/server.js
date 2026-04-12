@@ -136,6 +136,9 @@ io.on("connection", (socket) => {
         room.gameStarted = true;
         room.readyPlayers.clear();
         
+        // Notify all players that match is preparing (for loading screen)
+        io.to(currentRoom).emit("matchPreparing");
+        
         const players = room.players;
         
         // 1. Read selected map Data FIRST to determine spawn points
