@@ -22,6 +22,70 @@ const btnNewMap = document.getElementById("btn-new-map");
 const btnWelcomeNew = document.getElementById("btn-welcome-new");
 const welcomeOverlay = document.getElementById("welcome-overlay");
 
+// --- Custom Dialog System ---
+const EditorDialog = {
+    overlay: document.getElementById("editor-dialog-overlay"),
+    title: document.getElementById("dialog-title-text"),
+    message: document.getElementById("dialog-message-text"),
+    inputContainer: document.getElementById("dialog-input-container"),
+    inputField: document.getElementById("dialog-input-field"),
+    btnCancel: document.getElementById("dialog-btn-cancel"),
+    btnOk: document.getElementById("dialog-btn-ok"),
+
+    _resolve: null,
+
+    init() {
+        this.btnOk.onclick = () => this.handleOk();
+        this.btnCancel.onclick = () => this.handleCancel();
+        this.inputField.onkeydown = (e) => {
+            if (e.key === "Enter") this.handleOk();
+            if (e.key === "Escape") this.handleCancel();
+        };
+    },
+
+    show(type, msg, title = "EDITOR PRO", val = "") {
+        this.init();
+        this.title.innerText = title;
+        this.message.innerText = msg;
+        this.inputField.value = val;
+        this.inputContainer.style.display = (type === "prompt") ? "block" : "none";
+        this.btnCancel.style.display = (type === "alert") ? "none" : "block";
+        this.btnOk.innerText = (type === "alert") ? "YAP" : (type === "confirm" ? "YA" : "SIMPAN");
+        
+        this.overlay.classList.add("active");
+        if (type === "prompt") {
+            setTimeout(() => {
+                this.inputField.focus();
+                this.inputField.select();
+            }, 100);
+        }
+
+        return new Promise(res => {
+            this._resolve = res;
+        });
+    },
+
+    handleOk() {
+        const isPrompt = this.inputContainer.style.display === "block";
+        const val = this.inputField.value;
+        this.close();
+        if (this._resolve) this._resolve(isPrompt ? val : true);
+    },
+
+    handleCancel() {
+        this.close();
+        if (this._resolve) this._resolve(this.inputContainer.style.display === "block" ? null : false);
+    },
+
+    close() {
+        this.overlay.classList.remove("active");
+    },
+
+    alert(msg, title) { return this.show("alert", msg, title); },
+    confirm(msg, title) { return this.show("confirm", msg, title); },
+    prompt(msg, val, title) { return this.show("prompt", msg, title, val); }
+};
+
 
 let currentTool = "wall"; // "wall", "tower", "erase", "select", "waypoint", "spawn", "shape"
 let selectedItem = null;
@@ -271,7 +335,7 @@ function updateTowerInfo() {
 
 function setTool(tool, btn) {
     currentTool = tool;
-    document.querySelectorAll("#header button").forEach(b => b.classList.remove("active-tool"));
+    document.querySelectorAll("#toolbar button").forEach(b => b.classList.remove("active-tool"));
     if (btn) btn.classList.add("active-tool");
     
     const isShape = selectedItem && selectedItem.type === "shape";
@@ -538,7 +602,7 @@ btnRemoveShapeTexture.addEventListener("click", () => {
 
 btnSave.addEventListener("click", async () => {
     if (towers.length !== 3) {
-        alert("Anda harus memasang tepat 3 Tower sebelum menyimpan map.");
+        await EditorDialog.alert("Anda harus memasang tepat 3 Tower sebelum menyimpan map.", "PERINGATAN");
         return;
     }
 
@@ -546,10 +610,10 @@ btnSave.addEventListener("click", async () => {
     
     // If opening an existing map, we can just save it. If new, ask name.
     if (!mapName) {
-        mapName = prompt("Masukkan nama Map (Tanpa ekstensi .json):");
+        mapName = await EditorDialog.prompt("Masukkan nama Map (Tanpa ekstensi .json):", "", "SIMPAN MAP");
     } else {
-        if (!confirm(`Overwrite existing map "${mapName}"?`)) {
-            mapName = prompt("Simpan sebagai Nama Map baru:", mapName);
+        if (!await EditorDialog.confirm(`Overwrite existing map "${mapName}"?`, "KONFIRMASI SIMPAN")) {
+            mapName = await EditorDialog.prompt("Simpan sebagai Nama Map baru:", mapName, "SIMPAN SEBAGAI");
         }
     }
     
@@ -557,6 +621,9 @@ btnSave.addEventListener("click", async () => {
 
     const formattedName = mapName.trim().replace(/[^a-zA-Z0-9_\-]/g, '_');
     const filename = `${formattedName}.json`;
+
+    btnSave.innerText = "⌛";
+    btnSave.disabled = true;
 
     try {
         // Clean obstacles before saving (remove runtime objects to avoid JSON errors)
@@ -592,20 +659,23 @@ btnSave.addEventListener("click", async () => {
         });
         const data = await res.json();
         if (data.success) {
-            alert(`Map saved successfully!`);
+            await EditorDialog.alert(`Map saved successfully!`, "BERHASIL");
             currentLoadedMap = data.filename;
             loadMapList();
         } else {
-            alert("Error saving map.");
+            await EditorDialog.alert("Error saving map.", "GAGAL");
         }
     } catch (e) {
-        alert("Failed to reach server to save map.");
+        await EditorDialog.alert("Failed to reach server to save map.", "KESALAHAN");
         console.error(e);
+    } finally {
+        btnSave.innerText = "💾";
+        btnSave.disabled = false;
     }
 });
 
 async function deleteMap(filename) {
-    if (!confirm(`Are you sure you want to delete "${filename}"?`)) return;
+    if (!await EditorDialog.confirm(`Are you sure you want to delete "${filename}"?`, "KONFIRMASI HAPUS")) return;
     try {
         const res = await fetch(`/api/maps/${filename}`, { method: "DELETE" });
         const data = await res.json();
@@ -617,13 +687,23 @@ async function deleteMap(filename) {
                 towers = [];
                 waypoints = [];
                 playerSpawns = [];
+                
+                // Reset backgrounds too
+                bgImage = null;
+                bgImageObj = null;
+                outerBgImage = null;
+                outerBgImageObj = null;
+                borderBgImage = null;
+                
                 currentLoadedMap = null;
+                
+                showWelcomeState();
             }
             loadMapList();
             draw();
         }
     } catch (e) {
-        alert("Delete failed");
+        await EditorDialog.alert("Delete failed", "GAGAL");
     }
 }
 
@@ -730,7 +810,7 @@ async function loadMap(filename) {
         showCanvasState(); // Hide welcome, show canvas
         draw();
     } catch (e) {
-        alert("Error loading map");
+        await EditorDialog.alert("Error loading map", "GAGAL");
         console.error(e);
     }
 }
@@ -752,9 +832,9 @@ function showCanvasState() {
     canvas.style.display = "block";
 }
 
-function createNewMap() {
+async function createNewMap() {
     if (currentLoadedMap || obstacles.length > 0) {
-        if (!confirm("Start a new map? Unsaved changes will be lost.")) return;
+        if (!await EditorDialog.confirm("Start a new map? Unsaved changes will be lost.", "KONFIRMASI BARU")) return;
     }
     
     currentLoadedMap = null;
@@ -781,8 +861,8 @@ function createNewMap() {
 btnNewMap.addEventListener("click", createNewMap);
 btnWelcomeNew.addEventListener("click", createNewMap);
 
-btnClear.addEventListener("click", () => {
-    if (confirm("Clear all custom walls, towers, path waypoints, and spawn points?")) {
+btnClear.addEventListener("click", async () => {
+    if (await EditorDialog.confirm("Clear all custom walls, towers, path waypoints, and spawn points?", "KONFIRMASI RESET")) {
         // keep borders
         mapWidth = 1800;
         mapHeight = 900;
@@ -856,7 +936,7 @@ function findItemAt(x, y) {
     return null;
 }
 
-canvas.addEventListener("mousedown", (e) => {
+canvas.addEventListener("mousedown", async (e) => {
     const pos = getMousePos(e, currentTool !== "shape");
     if (currentTool === "wall" || currentTool === "shape") {
         isDrawing = true;
@@ -866,7 +946,7 @@ canvas.addEventListener("mousedown", (e) => {
         currentY = pos.y;
     } else if (currentTool === "tower") {
         if (towers.length >= 3) {
-            alert("Maksimum 3 tower (Tower 1, Tower 2, Base) sudah tercapai.");
+            await EditorDialog.alert("Maksimum 3 tower (Tower 1, Tower 2, Base) sudah tercapai.", "INFO TOWER");
             return;
         }
         const hp = parseInt(document.getElementById("tower-hp").value) || 500;

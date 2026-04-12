@@ -5,18 +5,28 @@
   <title>Map Editor Pro - Tower Defense</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
       --bg-editor: #1e1e1e;
       --bg-sidebar: #252526;
-      --bg-toolbar: #333333;
+      --bg-toolbar: #2d2d2d;
+      --bg-titlebar: #181818;
       --border: #3c3c3c;
+      --border-soft: #2a2a2a;
       --accent: #00f2fe;
+      --accent-dim: rgba(0,242,254,0.12);
       --text: #cccccc;
+      --text-muted: #888;
       --text-bright: #ffffff;
-      --hover: #444444;
+      --text-label: #9cdcfe;
+      --hover: rgba(255,255,255,0.05);
+      --hover-strong: rgba(255,255,255,0.09);
+      --red: #e74c3c;
+      --green: #2ecc71;
     }
+
+    *, *::before, *::after { box-sizing: border-box; }
 
     body {
       margin: 0;
@@ -27,369 +37,744 @@
       display: flex;
       flex-direction: column;
       height: 100vh;
+      font-size: 13px;
     }
 
-    /* HEADER / TOOLBAR */
-    #header {
-      height: 48px;
+    /* ══════════════════════ TITLE BAR ══════════════════════ */
+    #titlebar {
+      height: 30px;
+      background: var(--bg-titlebar);
+      display: flex;
+      align-items: center;
+      padding: 0 14px;
+      border-bottom: 1px solid var(--border-soft);
+      flex-shrink: 0;
+      z-index: 200;
+      user-select: none;
+    }
+
+    .titlebar-brand {
+      font-family: 'Outfit', sans-serif;
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--accent);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    #titlebar-path {
+      flex: 1;
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    #titlebar-path .current-file {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    /* ══════════════════════ TOOLBAR ══════════════════════ */
+    #toolbar {
+      height: 40px;
       background: var(--bg-toolbar);
       display: flex;
       align-items: center;
-      padding: 0 15px;
-      gap: 15px;
-      border-bottom: 3px solid var(--accent);
+      padding: 0 8px;
+      gap: 3px;
+      border-bottom: 2px solid var(--accent);
+      flex-shrink: 0;
       z-index: 100;
     }
 
-    .header-group {
-      display: flex;
-      align-items: center;
-      gap: 8px;
+    .toolbar-divider {
+      width: 1px; height: 22px;
+      background: var(--border);
+      margin: 0 5px;
+      flex-shrink: 0;
     }
 
-    .editor-title {
-      font-family: 'Outfit', sans-serif;
-      font-size: 14px;
-      letter-spacing: 1px;
-      color: var(--accent);
-      margin-right: 20px;
-    }
+    .toolbar-spacer { flex: 1; }
 
-    button {
-      background: #444;
-      color: var(--text);
-      border: 1px solid var(--border);
-      padding: 6px 12px;
-      font-size: 12px;
-      border-radius: 3px;
+    #toolbar button {
+      background: transparent;
+      color: var(--text-muted);
+      border: 1px solid transparent;
+      padding: 0;
+      font-size: 15px;
+      border-radius: 4px;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
       display: flex;
+      justify-content: center;
       align-items: center;
-      gap: 5px;
+      width: 32px;
+      height: 30px;
+      flex-shrink: 0;
     }
 
-    button:hover {
-      background: var(--hover);
+    #toolbar button:hover {
+      background: var(--hover-strong);
       color: var(--text-bright);
     }
 
-    button.active-tool {
-      background: var(--accent);
-      color: #000;
-      border-color: var(--accent);
-      font-weight: bold;
+    #toolbar button.active-tool {
+      background: var(--accent-dim);
+      color: var(--accent);
+      border-color: rgba(0,242,254,0.25);
+      box-shadow: 0 0 6px rgba(0,242,254,0.1);
     }
 
-    input[type="number"], input[type="text"] {
-      background: #3c3c3c;
-      color: #fff;
-      border: 1px solid var(--border);
-      padding: 5px 8px;
-      font-size: 12px;
-      border-radius: 3px;
+    /* Wide action buttons */
+    .tbtn-wide {
+      width: auto !important;
+      padding: 0 10px !important;
+      font-size: 13px !important;
+      gap: 5px;
     }
 
-    /* MAIN LAYOUT */
+    .tbtn-back  { color: var(--text-muted) !important; }
+    .tbtn-new   { background: var(--accent-dim) !important; color: var(--accent) !important; border-color: rgba(0,242,254,0.2) !important; }
+    .tbtn-new:hover  { background: rgba(0,242,254,0.2) !important; }
+    .tbtn-dupe  { background: rgba(124,92,191,0.15) !important; color: #a78bfa !important; border-color: rgba(124,92,191,0.25) !important; }
+    .tbtn-clear { background: rgba(231,76,60,0.12) !important; color: #f87171 !important; border-color: rgba(231,76,60,0.25) !important; }
+    .tbtn-clear:hover { background: rgba(231,76,60,0.22) !important; }
+    .tbtn-save  { background: rgba(46,204,113,0.15) !important; color: #4ade80 !important; border-color: rgba(46,204,113,0.25) !important; }
+    .tbtn-save:hover  { background: rgba(46,204,113,0.25) !important; }
+
+    /* ══════════════════════ MAIN LAYOUT ══════════════════════ */
     #main-container {
       flex: 1;
       display: flex;
       overflow: hidden;
     }
 
-    /* SIDEBAR */
+    /* ══════════════════════ SIDEBAR ══════════════════════ */
     #sidebar {
-      width: 250px;
+      width: 240px;
+      min-width: 180px;
       background: var(--bg-sidebar);
-      border-right: 1px solid var(--border);
+      border-right: 1px solid var(--border-soft);
       display: flex;
       flex-direction: column;
+      overflow: hidden;
     }
 
-    .sidebar-header {
-      padding: 10px 15px;
+    /* Section toggle headers */
+    .section-toggle {
+      padding: 6px 10px;
       font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
       text-transform: uppercase;
-      letter-spacing: 1px;
-      color: #888;
-      border-bottom: 1px solid var(--border);
+      color: var(--text-muted);
+      background: var(--bg-sidebar);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      user-select: none;
+      border-bottom: 1px solid var(--border-soft);
+      flex-shrink: 0;
+      transition: color 0.15s;
     }
 
-    #map-list {
-      flex: 1;
-      overflow-y: auto;
-      padding: 10px 0;
+    .section-toggle:hover { color: var(--text); }
+
+    .section-arrow {
+      font-size: 9px;
+      transition: transform 0.2s;
+      display: inline-block;
+      color: var(--text-muted);
     }
+
+    .section-toggle.collapsed .section-arrow { transform: rotate(-90deg); }
+
+    /* MAP FILES section */
+    #map-files-section {
+      flex: 0 0 auto;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    #map-files-body {
+      overflow-y: auto;
+      flex: 1;
+      max-height: 200px;
+    }
+
+    #map-files-body.collapsed { display: none; }
+
+    #map-list { padding: 4px 0; }
 
     .map-item {
-      padding: 8px 15px;
+      padding: 5px 12px 5px 22px;
       font-size: 13px;
       cursor: pointer;
       display: flex;
       align-items: center;
-      gap: 10px;
-      transition: background 0.2s;
+      gap: 6px;
+      color: var(--text);
+      transition: background 0.1s;
+      user-select: none;
     }
 
-    .map-item:hover {
-      background: var(--hover);
-    }
+    .map-item:hover { background: var(--hover); }
 
     .map-item.active {
-      background: #37373d;
+      background: var(--accent-dim);
       color: var(--accent);
     }
 
-    .map-item::before {
-      content: "📄";
-      font-size: 12px;
+    .map-item-icon {
+      font-size: 10px;
+      color: var(--text-muted);
+      font-weight: 700;
+      font-family: 'Outfit', sans-serif;
+      min-width: 14px;
     }
 
-    /* CANVAS */
+    .map-item.active .map-item-icon { color: var(--accent); }
+
+    .map-item-name {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .delete-map-btn {
+      background: transparent !important;
+      border: none !important;
+      color: var(--text-muted) !important;
+      font-size: 12px !important;
+      opacity: 0;
+      transition: opacity 0.15s, color 0.15s;
+      padding: 0 4px !important;
+      width: auto !important;
+      height: auto !important;
+      min-width: unset !important;
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+
+    .map-item:hover .delete-map-btn { opacity: 1; }
+    .delete-map-btn:hover { color: var(--red) !important; }
+
+    /* WORLD SETTINGS section */
+    #world-settings-section {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    #world-settings-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px 12px 20px;
+    }
+
+    #world-settings-body.collapsed { display: none; }
+
+    /* Setting groups */
+    .setting-group { margin-bottom: 14px; }
+
+    .setting-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      margin-bottom: 5px;
+      color: var(--text-label);
+      letter-spacing: 0.3px;
+    }
+
+    .setting-hint {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 4px;
+      line-height: 1.4;
+    }
+
+    input[type="number"],
+    input[type="text"] {
+      background: rgba(0,0,0,0.3);
+      color: var(--text-bright);
+      border: 1px solid var(--border);
+      padding: 5px 8px;
+      font-size: 12px;
+      border-radius: 3px;
+      width: 100%;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    input[type="number"]:focus,
+    input[type="text"]:focus { border-color: var(--accent); }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    input[type="color"] {
+      -webkit-appearance: none;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      cursor: pointer;
+      padding: 0;
+      background: none;
+    }
+
+    input[type="file"] {
+      font-size: 11px;
+      color: var(--text-muted);
+      cursor: pointer;
+      width: 100%;
+    }
+
+    .side-btn {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 11px;
+      padding: 4px 8px;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-family: inherit;
+    }
+
+    .side-btn:hover { background: var(--hover-strong); color: var(--text); }
+
+    .side-btn.danger { border-color: rgba(231,76,60,0.3); color: #f87171; }
+    .side-btn.danger:hover { background: rgba(231,76,60,0.15); }
+
+    /* ══════════════════════ CANVAS AREA ══════════════════════ */
     #editor-viewport {
       flex: 1;
       display: flex;
       justify-content: center;
       align-items: center;
-      background: #000;
+      background: #111;
       position: relative;
+      overflow: hidden;
     }
 
     canvas {
-      box-shadow: 0 0 50px rgba(0,0,0,0.5);
-      border: 1px solid #333;
+      box-shadow: 0 0 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04);
       background: #0a0a0a;
     }
 
-    /* PROPERTIES PANE (Floating or Right) */
-    #properties-pane {
-      position: absolute;
-      top: 20px;
-      right: 20px;
-      width: 200px;
-      background: rgba(30, 30, 30, 0.9);
-      backdrop-filter: blur(10px);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 15px;
-      display: none; /* Shown via JS */
+    /* ══════════════════════ STATUS BAR ══════════════════════ */
+    #statusbar {
+      height: 22px;
+      background: var(--accent);
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      gap: 16px;
+      flex-shrink: 0;
     }
 
-    .prop-group {
-      margin-bottom: 12px;
+    .statusbar-item {
+      font-size: 11px;
+      color: rgba(0,0,0,0.7);
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 4px;
     }
+
+    #statusbar-tool {
+      color: #000;
+      font-weight: 800;
+      font-family: 'Outfit', sans-serif;
+      letter-spacing: 0.5px;
+    }
+
+    /* ══════════════════════ PROPERTIES PANE ══════════════════════ */
+    #properties-pane {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      width: 210px;
+      background: rgba(18,18,20,0.97);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border);
+      border-top: 2px solid var(--accent);
+      border-radius: 6px;
+      padding: 12px;
+      display: none;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.7);
+    }
+
+    .pane-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--accent);
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .prop-group { margin-bottom: 10px; }
 
     .prop-group label {
       display: block;
       font-size: 11px;
-      margin-bottom: 5px;
-      color: #888;
+      margin-bottom: 4px;
+      color: var(--text-label);
     }
 
-    /* CONTEXT MENU */
-    #context-menu {
-      position: absolute;
-      background: var(--bg-sidebar);
-      border: 1px solid var(--border);
-      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-      border-radius: 4px;
-      padding: 5px 0;
-      z-index: 1000;
-      display: none;
-      min-width: 150px;
-    }
-    .menu-item {
-      padding: 8px 15px;
-      font-size: 12px;
-      cursor: pointer;
-      color: var(--text);
-    }
-    .menu-item:hover {
-      background: var(--accent);
-      color: #000;
-    }
-    .menu-sep {
-      height: 1px;
-      background: var(--border);
-      margin: 5px 0;
-    }
-
-    .delete-map-btn {
-      margin-left: auto;
-      background: transparent;
-      border: none;
-      color: #888;
-      font-size: 14px;
-      opacity: 0;
-      transition: opacity 0.2s;
-      padding: 2px 5px;
-    }
-    .map-item:hover .delete-map-btn {
-      opacity: 1;
-    }
-    .delete-map-btn:hover {
-      color: #e74c3c;
-    }
-
-    /* SCROLLBAR */
-    ::-webkit-scrollbar { width: 5px; height: 5px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: #444; border-radius: 5px; }
-    ::-webkit-scrollbar-thumb:hover { background: #666; }
-
-    /* Welcome Overlay */
+    /* ══════════════════════ WELCOME OVERLAY ══════════════════════ */
     #welcome-overlay {
       position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: radial-gradient(circle at center, #1a1a1a 0%, #0a0a0a 100%);
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: radial-gradient(ellipse at center, #1a1a2e 0%, #0d0d0d 70%);
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
       z-index: 50;
       text-align: center;
-      padding: 20px;
+      padding: 40px;
     }
+
+    .welcome-icon {
+      font-size: 52px;
+      margin-bottom: 20px;
+      filter: drop-shadow(0 0 18px rgba(0,242,254,0.35));
+    }
+
     .welcome-content h1 {
       font-family: 'Outfit', sans-serif;
-      font-size: 42px;
-      background: linear-gradient(to right, #00f2fe, #4facfe);
+      font-size: 30px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #00f2fe, #4facfe, #00f2fe);
+      background-size: 200% auto;
       -webkit-background-clip: text;
       background-clip: text;
       -webkit-text-fill-color: transparent;
-      margin-bottom: 15px;
+      margin: 0 0 10px;
       letter-spacing: 2px;
+      animation: shimmer 3s linear infinite;
     }
+
+    @keyframes shimmer { to { background-position: 200% center; } }
+
     .welcome-content p {
-      color: #888;
-      font-size: 16px;
-      margin-bottom: 30px;
-      max-width: 500px;
+      color: var(--text-muted);
+      font-size: 14px;
+      margin: 0 0 28px;
+      max-width: 460px;
+      line-height: 1.6;
     }
+
     .big-btn {
+      display: inline-flex;
       align-items: center;
+      gap: 8px;
       background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
       color: #000;
       font-weight: 800;
-      padding: 15px 32px;
-      border-radius: 12px;
-      font-size: 15px;
+      padding: 12px 26px;
+      border-radius: 7px;
+      font-size: 14px;
       border: none;
       cursor: pointer;
       transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
       text-transform: uppercase;
-      letter-spacing: 1px;
-      justify-content: center;
-      justify-items: center;
-      display: inline;
-    }
-    .big-btn:hover {
-      transform: translateY(-4px);
-      filter: brightness(1.1);
-    }
-    #editorCanvas {
-      display: none; /* Initially hidden */
+      letter-spacing: 1.5px;
+      font-family: 'Outfit', sans-serif;
     }
 
+    .big-btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 10px 28px rgba(0,242,254,0.35);
+      filter: brightness(1.1);
+    }
+
+    #editorCanvas { display: none; }
+
+    /* ══════════════════════ CONTEXT MENU ══════════════════════ */
+    #context-menu {
+      position: absolute;
+      background: #252526;
+      border: 1px solid var(--border);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.6);
+      border-radius: 4px;
+      padding: 4px 0;
+      z-index: 1000;
+      display: none;
+      min-width: 160px;
+    }
+
+    .menu-item {
+      padding: 7px 14px;
+      font-size: 12px;
+      cursor: pointer;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: background 0.1s;
+    }
+
+    .menu-item:hover { background: var(--accent-dim); color: var(--accent); }
+    .menu-sep { height: 1px; background: var(--border); margin: 4px 0; }
+
+    /* ══════════════════════ SCROLLBAR ══════════════════════ */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #404040; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #555; }
+
+    /* ══════════════════════ CUSTOM DIALOG ══════════════════════ */
+    #editor-dialog-overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 3000;
+      opacity: 0;
+      transition: opacity 0.22s ease;
+    }
+
+    #editor-dialog-overlay.active { display: flex; opacity: 1; }
+
+    .dialog-box {
+      background: #252526;
+      border: 1px solid var(--border);
+      border-top: 2px solid var(--accent);
+      border-radius: 6px;
+      padding: 22px 26px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.85);
+      transform: translateY(-10px) scale(0.97);
+      transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    #editor-dialog-overlay.active .dialog-box { transform: translateY(0) scale(1); }
+
+    .dialog-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+    }
+
+    .dialog-message {
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--text);
+      margin-bottom: 18px;
+    }
+
+    .dialog-input-container { margin-bottom: 18px; }
+
+    .dialog-input-container input {
+      width: 100%;
+      background: rgba(0,0,0,0.4);
+      border: 1px solid var(--border);
+      color: var(--text-bright);
+      padding: 9px 12px;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 13px;
+      outline: none;
+    }
+
+    .dialog-input-container input:focus { border-color: var(--accent); }
+
+    .dialog-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .dialog-btn {
+      padding: 7px 16px;
+      border-radius: 4px;
+      font-weight: 700;
+      font-family: 'Outfit', sans-serif;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s;
+      border: 1px solid transparent;
+      min-width: 68px;
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .dialog-btn-cancel {
+      background: rgba(255,255,255,0.04);
+      color: var(--text-muted);
+      border-color: var(--border);
+    }
+
+    .dialog-btn-cancel:hover { background: var(--hover-strong); color: var(--text); }
+
+    .dialog-btn-ok { background: var(--accent); color: #000; }
+    .dialog-btn-ok:hover { filter: brightness(1.15); }
   </style>
 </head>
 <body>
 
-  <div id="header">
-    <div class="editor-title">MAP_EDITOR_PRO</div>
-    
-    <div class="header-group">
-      <button id="btn-back" onclick="window.location.href='/'">🔙 Home</button>
-      <button id="btn-new-map" style="background: var(--accent); color: #000; font-weight: bold; margin-left:10px;">➕ Create New Map</button>
+  <!-- TITLE BAR -->
+  <div id="titlebar">
+    <span class="titlebar-brand">MAP_EDITOR_PRO</span>
+    <div id="titlebar-path">
+      tower-defense / maps / <span class="current-file" id="titlebar-filename">untitled</span>
     </div>
-
-    <div style="width:20px;"></div>
-
-    <div class="header-group">
-      <button id="tool-wall" class="active-tool">🧱 Wall</button>
-      <button id="tool-shape">📦 Shape</button>
-      <button id="tool-tower">🗼 Tower</button>
-      <button id="tool-waypoint">📍 Path</button>
-      <button id="tool-spawn">🏁 Spawn</button>
-      <button id="tool-select">🖱️ Select</button>
-      <button id="tool-erase">🧹 Erase</button>
-    </div>
-
-    <div style="width:20px;"></div>
-
-    <div class="header-group">
-      <button id="btn-duplicate" style="display:none; background:#6344ad">✨ Duplicate</button>
-    </div>
-
-    <div style="flex:1;"></div>
-
-    <div class="header-group">
-      <button id="btn-clear" style="background:#8b2b2b">🗑️ Clear</button>
-      <button id="btn-save" style="background:#2b8b3d">💾 Save Map</button>
-    </div>
+    <div style="width:120px;"></div><!-- balance spacer -->
   </div>
 
+  <!-- TOOLBAR -->
+  <div id="toolbar">
+    <button id="btn-back" class="tbtn-wide tbtn-back" onclick="window.location.href='/'" title="Home">🔙</button>
+    <button id="btn-new-map" class="tbtn-wide tbtn-new" title="Create New Map">➕</button>
+
+    <div class="toolbar-divider"></div>
+
+    <button id="tool-wall" class="active-tool" title="Wall Tool">🧱</button>
+    <button id="tool-shape" title="Shape Tool">📦</button>
+    <button id="tool-tower" title="Tower Tool">🗼</button>
+    <button id="tool-waypoint" title="Path / Waypoint">📍</button>
+    <button id="tool-spawn" title="Spawn Point">🏁</button>
+    <button id="tool-select" title="Select">🖱️</button>
+    <button id="tool-erase" title="Erase">🧹</button>
+
+    <div class="toolbar-divider"></div>
+
+    <button id="btn-duplicate" class="tbtn-wide tbtn-dupe" style="display:none;" title="Duplicate">✨</button>
+
+    <div class="toolbar-spacer"></div>
+
+    <button id="btn-clear" class="tbtn-wide tbtn-clear" title="Clear Map">🗑️</button>
+    <button id="btn-save" class="tbtn-wide tbtn-save" title="Save Map">💾</button>
+  </div>
+
+  <!-- MAIN AREA -->
   <div id="main-container">
+
+    <!-- SIDEBAR -->
     <div id="sidebar">
-      <div id="map-list">
-        <!-- Maps populated via JS -->
+
+      <!-- MAP FILES section -->
+      <div id="map-files-section">
+        <div class="section-toggle" id="toggle-maps" onclick="toggleSection('maps')">
+          <span class="section-arrow" id="arrow-maps">▾</span>
+          MAP FILES
+        </div>
+        <div id="map-files-body">
+          <div id="map-list">
+            <!-- populated via JS -->
+          </div>
+        </div>
       </div>
 
-      <div class="sidebar-header" style="border-top: 1px solid var(--border); margin-top: 10px;">World Settings</div>
-      <div style="padding: 15px;">
-        <div class="prop-group">
-          <label>Arena Width</label>
-          <input type="number" id="map-width" value="1800" step="100">
+      <!-- WORLD SETTINGS section -->
+      <div id="world-settings-section">
+        <div class="section-toggle" id="toggle-world" onclick="toggleSection('world')">
+          <span class="section-arrow" id="arrow-world">▾</span>
+          WORLD SETTINGS
         </div>
-        <div class="prop-group">
-          <label>Arena Height</label>
-          <input type="number" id="map-height" value="900" step="100">
-        </div>
-        <div class="prop-group" style="margin-top:14px;">
-          <label style="color:#aaa;">Background Image</label>
-          <div style="display:flex; flex-direction:column; gap:6px;">
-            <input type="file" id="bg-image-input" accept="image/*" style="font-size:11px; color:#ccc; background:transparent; border:none; padding:0; cursor:pointer;">
-            <canvas id="bg-preview" width="210" height="70" style="border-radius:4px; border:1px solid #3c3c3c; display:none; object-fit:cover;"></canvas>
-            <button id="btn-remove-bg" style="display:none; background:#8b2b2b; font-size:11px; padding:4px 8px;">🗑 Remove Background</button>
-          </div>
-          <div style="font-size:10px; color:#555; margin-top:4px;">Jika kosong, bintang berkedip akan digunakan sebagai latar.</div>
-        </div>
-        <div class="prop-group" style="margin-top:14px;">
-          <label style="color:#aaa;">Outside Arena</label>
-          <div style="display:flex; flex-direction:column; gap:6px;">
-            <div style="display:flex; align-items:center; gap:8px;">
-              <input type="color" id="outer-color-input" value="#000000" style="width:36px; height:28px; border:none; background:none; cursor:pointer; padding:0;">
-              <span style="font-size:11px; color:#888;">Warna latar luar arena</span>
+        <div id="world-settings-body">
+
+          <!-- Dimensions -->
+          <div class="setting-group">
+            <span class="setting-label">Arena Dimensions</span>
+            <div class="two-col">
+              <div>
+                <div style="font-size:10px; color:var(--text-muted); margin-bottom:3px;">Width</div>
+                <input type="number" id="map-width" value="1800" step="100">
+              </div>
+              <div>
+                <div style="font-size:10px; color:var(--text-muted); margin-bottom:3px;">Height</div>
+                <input type="number" id="map-height" value="900" step="100">
+              </div>
             </div>
-            <input type="file" id="outer-image-input" accept="image/*" style="font-size:11px; color:#ccc; background:transparent; border:none; padding:0; cursor:pointer;">
-            <canvas id="outer-preview" width="210" height="50" style="border-radius:4px; border:1px solid #3c3c3c; display:none;"></canvas>
-            <button id="btn-remove-outer-bg" style="display:none; background:#8b2b2b; font-size:11px; padding:4px 8px;">🗑 Remove Outer Image</button>
           </div>
-          <div style="font-size:10px; color:#555; margin-top:4px;">Gambar akan menutupi warna. Kosongkan untuk pakai warna saja.</div>
-        </div>
-        <div class="prop-group" style="margin-top:14px;">
-          <label style="color:#aaa;">Map Border Texture</label>
-          <div style="display:flex; flex-direction:column; gap:6px;">
-            <input type="file" id="border-image-input" accept="image/*" style="font-size:11px; color:#ccc; background:transparent; border:none; padding:0; cursor:pointer;">
-            <canvas id="border-img-preview" width="210" height="30" style="border-radius:4px; border:1px solid #3c3c3c; display:none; object-fit:cover;"></canvas>
-            <button id="btn-remove-border-img" style="display:none; background:#8b2b2b; font-size:11px; padding:4px 8px;">🗑 Remove Border</button>
-          </div>
-          <div style="font-size:10px; color:#555; margin-top:4px;">Mengubah tekstur keempat sisi kotak pembatas map (tiling). Outline neon akan otomatis hilang.</div>
-        </div>
-      </div>
-    </div>
 
+          <!-- Background Image -->
+          <div class="setting-group">
+            <span class="setting-label">Background Image</span>
+            <input type="file" id="bg-image-input" accept="image/*">
+            <canvas id="bg-preview" width="210" height="60" style="border-radius:4px; border:1px solid var(--border); display:none; margin-top:6px; width:100%;"></canvas>
+            <div style="margin-top:6px;">
+              <button class="side-btn danger" id="btn-remove-bg" style="display:none;">🗑 Remove</button>
+            </div>
+            <div class="setting-hint">Falls back to animated star field if empty.</div>
+          </div>
+
+          <!-- Outside Arena -->
+          <div class="setting-group">
+            <span class="setting-label">Outside Arena</span>
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+              <input type="color" id="outer-color-input" value="#000000" style="width:32px; height:26px;">
+              <span style="font-size:11px; color:var(--text-muted);">Outer color</span>
+            </div>
+            <input type="file" id="outer-image-input" accept="image/*">
+            <canvas id="outer-preview" width="210" height="40" style="border-radius:4px; border:1px solid var(--border); display:none; margin-top:6px; width:100%;"></canvas>
+            <div style="margin-top:6px;">
+              <button class="side-btn danger" id="btn-remove-outer-bg" style="display:none;">🗑 Remove Image</button>
+            </div>
+            <div class="setting-hint">Image overrides color.</div>
+          </div>
+
+          <!-- Border Texture -->
+          <div class="setting-group">
+            <span class="setting-label">Map Border Texture</span>
+            <input type="file" id="border-image-input" accept="image/*">
+            <canvas id="border-img-preview" width="210" height="26" style="border-radius:4px; border:1px solid var(--border); display:none; margin-top:6px; width:100%;"></canvas>
+            <div style="margin-top:6px;">
+              <button class="side-btn danger" id="btn-remove-border-img" style="display:none;">🗑 Remove Border</button>
+            </div>
+            <div class="setting-hint">Tiled across all four border walls. Neon outline is hidden when a texture is set.</div>
+          </div>
+
+        </div><!-- /world-settings-body -->
+      </div><!-- /world-settings-section -->
+
+    </div><!-- /sidebar -->
+
+    <!-- CANVAS VIEWPORT -->
     <div id="editor-viewport">
+
+      <!-- Welcome Overlay -->
       <div id="welcome-overlay">
+        <div class="welcome-icon">🗺️</div>
         <div class="welcome-content">
-          <h1>Welcome to Map Editor</h1>
-          <p>Start your journey by creating a fresh battlefield or modify an existing arena from the list on the left.</p>
+          <h1>MAP EDITOR PRO</h1>
+          <p>Create a fresh battlefield from scratch, or open an existing arena from the file explorer on the left.</p>
           <button id="btn-welcome-new" class="big-btn">➕ Create New Map</button>
         </div>
       </div>
+
       <canvas id="editorCanvas" width="1800" height="900"></canvas>
 
       <!-- Context Menu -->
@@ -397,99 +782,168 @@
         <div class="menu-item" id="cm-duplicate">✨ Duplicate</div>
         <div class="menu-item" id="cm-delete">🗑️ Delete Item</div>
         <div class="menu-sep"></div>
-        <div class="menu-item" id="cm-clear-sel">🔘 Deselect</div>
+        <div class="menu-item" id="cm-clear-sel">✕ Deselect</div>
       </div>
 
-      <!-- Properties Pane (Shown when item selected) -->
+      <!-- Properties Pane -->
       <div id="properties-pane">
-        <div style="font-size:12px; font-weight:bold; margin-bottom:15px; color:var(--accent);">Properties</div>
-        
+        <div class="pane-title">Properties</div>
+
         <div id="wall-options">
           <div class="prop-group">
             <label>Rotation Angle (°)</label>
-            <input type="number" id="wall-angle" value="0" step="15" style="width:100%;">
+            <input type="number" id="wall-angle" value="0" step="15">
           </div>
-          <div class="prop-group" style="margin-top:14px;">
-            <label style="color:#aaa;">Wall Texture (Tiling)</label>
-            <div style="display:flex; flex-direction:column; gap:6px;">
-              <input type="file" id="wall-texture-input" accept="image/*" style="font-size:11px; color:#ccc; background:transparent; border:none; padding:0; cursor:pointer;">
-              <canvas id="wall-texture-preview" width="50" height="50" style="border-radius:4px; border:1px solid #3c3c3c; display:none; object-fit:cover;"></canvas>
-              <button id="btn-remove-wall-texture" style="display:none; background:#8b2b2b; font-size:11px; padding:4px 8px;">🗑 Remove Texture</button>
+          <div class="prop-group" style="margin-top:12px;">
+            <label style="color:var(--text-muted);">Wall Texture (Tiling)</label>
+            <div style="display:flex; flex-direction:column; gap:5px; margin-top:4px;">
+              <input type="file" id="wall-texture-input" accept="image/*">
+              <canvas id="wall-texture-preview" width="50" height="50" style="border-radius:4px; border:1px solid var(--border); display:none;"></canvas>
+              <button class="side-btn danger" id="btn-remove-wall-texture" style="display:none;">🗑 Remove</button>
             </div>
-            <div style="font-size:10px; color:#555; margin-top:4px;">Akan di-repeat (tile) ke seluruh kotak collision. Border akan hilang.</div>
+            <div class="setting-hint">Repeating tile across the collision surface.</div>
           </div>
         </div>
 
         <div id="shape-options" style="display:none;">
           <div class="prop-group">
-            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:#fff;">
-              <input type="checkbox" id="shape-collision" checked style="width:16px; height:16px;">
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:var(--text);">
+              <input type="checkbox" id="shape-collision" checked style="width:14px; height:14px; cursor:pointer;">
               Enable Collision
             </label>
-            <div style="font-size:10px; color:#555; margin-top:4px;">Jika dimatikan, pemain & minion bisa melewatinya.</div>
+            <div class="setting-hint">If off, units pass through this shape.</div>
           </div>
           <div class="prop-group">
             <label>Shape Color</label>
-            <input type="color" id="shape-color" value="#444444" style="width:100%; height:30px; border:none; background:none; cursor:pointer;">
+            <input type="color" id="shape-color" value="#444444" style="width:100%; height:28px;">
           </div>
-          <div style="display:flex; gap:10px;">
+          <div style="display:flex; gap:8px;">
             <div class="prop-group" style="flex:1;">
-              <label>Width (PX)</label>
-              <input type="number" id="shape-width" value="100" style="width:100%; box-sizing:border-box;">
+              <label>Width px</label>
+              <input type="number" id="shape-width" value="100" style="width:100%;">
             </div>
             <div class="prop-group" style="flex:1;">
-              <label>Height (PX)</label>
-              <input type="number" id="shape-height" value="100" style="width:100%; box-sizing:border-box;">
+              <label>Height px</label>
+              <input type="number" id="shape-height" value="100" style="width:100%;">
             </div>
           </div>
-          <div class="prop-group" style="margin-top:14px;">
-            <label style="color:#aaa;">Shape Asset (Stretched)</label>
-            <div style="display:flex; flex-direction:column; gap:6px;">
-              <input type="file" id="shape-texture-input" accept="image/*" style="font-size:11px; color:#ccc; background:transparent; border:none; padding:0; cursor:pointer;">
-              <canvas id="shape-texture-preview" width="50" height="50" style="border-radius:4px; border:1px solid #3c3c3c; display:none; object-fit:cover;"></canvas>
-              <button id="btn-remove-shape-texture" style="display:none; background:#8b2b2b; font-size:11px; padding:4px 8px;">🗑 Remove Asset</button>
+          <div class="prop-group" style="margin-top:12px;">
+            <label style="color:var(--text-muted);">Shape Asset (Stretched)</label>
+            <div style="display:flex; flex-direction:column; gap:5px; margin-top:4px;">
+              <input type="file" id="shape-texture-input" accept="image/*">
+              <canvas id="shape-texture-preview" width="50" height="50" style="border-radius:4px; border:1px solid var(--border); display:none;"></canvas>
+              <button class="side-btn danger" id="btn-remove-shape-texture" style="display:none;">🗑 Remove</button>
             </div>
-            <div style="font-size:10px; color:#555; margin-top:4px;">Gambar akan ditarik (stretch) menutupi seluruh area shape.</div>
           </div>
         </div>
 
         <div id="tower-options" style="display:none;">
           <div class="prop-group">
             <label>Sequence</label>
-            <div id="tower-sequence-info" style="color:var(--accent); font-weight:bold; font-size:13px;"></div>
+            <div id="tower-sequence-info" style="color:var(--accent); font-weight:bold; font-size:12px;"></div>
           </div>
           <div class="prop-group">
             <label>HP Points</label>
-            <input type="number" id="tower-hp" value="500" style="width:100%;">
+            <input type="number" id="tower-hp" value="500">
           </div>
           <div class="prop-group">
-            <label>Tower Size (PX)</label>
-            <input type="number" id="tower-size" value="80" style="width:100%;">
+            <label>Tower Size px</label>
+            <input type="number" id="tower-size" value="80">
           </div>
-          <div class="prop-group" style="margin-top:14px;">
-            <label style="color:#aaa;">Tower Texture (Asset)</label>
-            <div style="display:flex; flex-direction:column; gap:6px;">
-              <input type="file" id="tower-texture-input" accept="image/*" style="font-size:11px; color:#ccc; background:transparent; border:none; padding:0; cursor:pointer;">
-              <canvas id="tower-texture-preview" width="50" height="50" style="border-radius:4px; border:1px solid #3c3c3c; display:none; object-fit:cover;"></canvas>
-              <button id="btn-remove-tower-texture" style="display:none; background:#8b2b2b; font-size:11px; padding:4px 8px;">🗑 Remove Texture</button>
+          <div class="prop-group" style="margin-top:12px;">
+            <label style="color:var(--text-muted);">Tower Texture</label>
+            <div style="display:flex; flex-direction:column; gap:5px; margin-top:4px;">
+              <input type="file" id="tower-texture-input" accept="image/*">
+              <canvas id="tower-texture-preview" width="50" height="50" style="border-radius:4px; border:1px solid var(--border); display:none;"></canvas>
+              <button class="side-btn danger" id="btn-remove-tower-texture" style="display:none;">🗑 Remove</button>
             </div>
-            <div style="font-size:10px; color:#555; margin-top:4px;">Menggantikan visual neon tiang kristal bawaan.</div>
           </div>
         </div>
 
-        <!-- Waypoint Options -->
         <div id="waypoint-options" style="display:none;">
           <div class="prop-group">
             <label>Waypoint Index</label>
-            <div id="wp-index-info" style="color:var(--accent); font-weight:bold; font-size:13px;"></div>
+            <div id="wp-index-info" style="color:var(--accent); font-weight:bold; font-size:12px;"></div>
           </div>
-          <p style="font-size:10px; color:#888;">Minions will travel through these nodes in order.</p>
+          <div class="setting-hint">Minions travel these nodes in sequence.</div>
         </div>
+      </div><!-- /properties-pane -->
+    </div><!-- /editor-viewport -->
+  </div><!-- /main-container -->
+
+  <!-- STATUS BAR -->
+  <div id="statusbar">
+    <div class="statusbar-item">Tool: <span id="statusbar-tool">WALL</span></div>
+    <div class="statusbar-item" style="margin-left:auto;">Map Editor Pro</div>
+  </div>
+
+  <!-- Custom Dialog Modal -->
+  <div id="editor-dialog-overlay">
+    <div class="dialog-box">
+      <div class="dialog-title" id="dialog-title-text">SYSTEM</div>
+      <div class="dialog-message" id="dialog-message-text">Message</div>
+      <div class="dialog-input-container" id="dialog-input-container" style="display:none;">
+        <input type="text" id="dialog-input-field" placeholder="Enter value...">
+      </div>
+      <div class="dialog-actions">
+        <button class="dialog-btn dialog-btn-cancel" id="dialog-btn-cancel">BATAL</button>
+        <button class="dialog-btn dialog-btn-ok" id="dialog-btn-ok">LANJUT</button>
       </div>
     </div>
   </div>
 
   <script src="src/editor/main.js"></script>
+
+  <script>
+    /* ─── Section toggle ─── */
+    function toggleSection(name) {
+      const body  = document.getElementById(name === 'maps' ? 'map-files-body' : 'world-settings-body');
+      const arrow = document.getElementById('arrow-' + name);
+      const toggle= document.getElementById('toggle-' + name);
+      const collapsed = body.classList.toggle('collapsed');
+      toggle.classList.toggle('collapsed', collapsed);
+    }
+
+    /* ─── Sync titlebar filename ─── */
+    function updateTitlebarFilename(filename) {
+      const el = document.getElementById('titlebar-filename');
+      if (el) el.textContent = filename || 'untitled';
+    }
+
+    /* ─── Status bar tool name ─── */
+    const toolLabels = {
+      wall:'WALL', shape:'SHAPE', tower:'TOWER', waypoint:'PATH',
+      spawn:'SPAWN', select:'SELECT', erase:'ERASE'
+    };
+
+    document.querySelectorAll('#toolbar button[id^="tool-"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tool = btn.id.replace('tool-', '');
+        const el = document.getElementById('statusbar-tool');
+        if (el) el.textContent = toolLabels[tool] || tool.toUpperCase();
+      });
+    });
+
+    /* ─── Hook map load/create/delete to update titlebar ─── */
+    // We wait for main.js to load, then intercept
+    window.addEventListener('load', () => {
+      // Patch loadMap
+      const _origLoadMap = window.loadMap;
+      if (_origLoadMap) {
+        window.loadMap = async function(filename) {
+          await _origLoadMap(filename);
+          updateTitlebarFilename(filename);
+        };
+      }
+
+      // Observe currentLoadedMap changes via MutationObserver is not feasible,
+      // so we poll lightly (fallback)
+      setInterval(() => {
+        if (typeof currentLoadedMap !== 'undefined') {
+          updateTitlebarFilename(currentLoadedMap || 'untitled');
+        }
+      }, 1000);
+    });
+  </script>
 </body>
 </html>
-
