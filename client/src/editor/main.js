@@ -18,6 +18,10 @@ const towerSequenceInfo = document.getElementById("tower-sequence-info");
 const propPane = document.getElementById("properties-pane");
 const wallAngleInput = document.getElementById("wall-angle");
 const mapListContainer = document.getElementById("map-list");
+const btnNewMap = document.getElementById("btn-new-map");
+const btnWelcomeNew = document.getElementById("btn-welcome-new");
+const welcomeOverlay = document.getElementById("welcome-overlay");
+
 
 let currentTool = "wall"; // "wall", "tower", "erase", "select", "waypoint", "spawn", "shape"
 let selectedItem = null;
@@ -38,7 +42,7 @@ function initBorders() {
         { x: mapWidth, y: 0, w: 20, h: mapHeight, color: "#444", type: "border" }  // Right
     ];
 }
-initBorders();
+// initBorders(); // Removed from global call
 let towers = [];
 let waypoints = []; // [{x, y}]
 let playerSpawns = []; // [{x, y}]
@@ -723,12 +727,59 @@ async function loadMap(filename) {
         }
         
         loadMapList(); // Refresh active state
+        showCanvasState(); // Hide welcome, show canvas
         draw();
     } catch (e) {
         alert("Error loading map");
         console.error(e);
     }
 }
+
+function showWelcomeState() {
+    welcomeOverlay.style.display = "flex";
+    canvas.style.display = "none";
+    propPane.style.display = "none";
+    // Reset state
+    currentLoadedMap = null;
+    obstacles = [];
+    towers = [];
+    waypoints = [];
+    playerSpawns = [];
+}
+
+function showCanvasState() {
+    welcomeOverlay.style.display = "none";
+    canvas.style.display = "block";
+}
+
+function createNewMap() {
+    if (currentLoadedMap || obstacles.length > 0) {
+        if (!confirm("Start a new map? Unsaved changes will be lost.")) return;
+    }
+    
+    currentLoadedMap = null;
+    mapWidth = 1800;
+    mapHeight = 900;
+    mapWidthInput.value = 1800;
+    mapHeightInput.value = 900;
+    canvas.width = 1800;
+    canvas.height = 900;
+    
+    initBorders();
+    towers = [];
+    waypoints = [];
+    playerSpawns = [];
+    bgImage = null; bgImageObj = null;
+    setBgImage(null);
+    setOuterBgImage(null);
+    setGlobalBorderImage(null);
+    
+    showCanvasState();
+    draw();
+}
+
+btnNewMap.addEventListener("click", createNewMap);
+btnWelcomeNew.addEventListener("click", createNewMap);
 
 btnClear.addEventListener("click", () => {
     if (confirm("Clear all custom walls, towers, path waypoints, and spawn points?")) {
@@ -1274,4 +1325,5 @@ document.getElementById("cm-clear-sel").onclick = () => {
 
 // Initial load
 loadMapList();
-draw();
+showWelcomeState();
+// draw(); // Don't draw initially as canvas is hidden
