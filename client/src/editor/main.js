@@ -134,6 +134,110 @@ let playerSpawns = []; // [{x, y}]
 let bgImage = null;     // base64 data URL string
 let bgImageObj = null;  // HTMLImageElement cached
 
+// --- History / Undo System ---
+const History = {
+    stack: [],
+    index: -1,
+    max: 50,
+
+    push(reason = "action") {
+        // Deep copy of relevant state
+        const state = JSON.stringify({
+            obstacles: obstacles.map(o => {
+                const { _textureImg, _texturePat, ...rest } = o;
+                return rest;
+            }),
+            towers: towers.map(t => {
+                const { _textureImg, ...rest } = t;
+                return rest;
+            }),
+            waypoints: waypoints,
+            playerSpawns: playerSpawns,
+            mapWidth: mapWidth,
+            mapHeight: mapHeight,
+            bgImage: bgImage,
+            outerBgColor: outerBgColor,
+            outerBgImage: outerBgImage,
+            borderBgImage: borderBgImage
+        });
+
+        // If something changed since last push
+        if (this.index >= 0 && this.stack[this.index] === state) return;
+
+        console.log(`History: Pushing state [${reason}]. New index: ${this.index + 1}`);
+
+        // Cut off any future history if we were in the middle of undo-ing
+        this.stack = this.stack.slice(0, this.index + 1);
+        this.stack.push(state);
+        if (this.stack.length > this.max) {
+            this.stack.shift();
+        } else {
+            this.index++;
+        }
+    },
+
+    undo() {
+        if (this.index <= 0) {
+            console.warn("History: Nothing to undo");
+            return;
+        }
+        this.index--;
+        console.log(`History: Undo to index ${this.index}`);
+        this.apply();
+    },
+
+    redo() {
+        if (this.index >= this.stack.length - 1) {
+            console.warn("History: Nothing to redo");
+            return;
+        }
+        this.index++;
+        console.log(`History: Redo to index ${this.index}`);
+        this.apply();
+    },
+
+    apply() {
+        const data = JSON.parse(this.stack[this.index]);
+        
+        mapWidth = data.mapWidth;
+        mapHeight = data.mapHeight;
+        mapWidthInput.value = mapWidth;
+        mapHeightInput.value = mapHeight;
+        canvas.width = mapWidth;
+        canvas.height = mapHeight;
+
+        obstacles = data.obstacles || [];
+        towers = data.towers || [];
+        waypoints = data.waypoints || [];
+        playerSpawns = data.playerSpawns || [];
+        
+        // Restore backgrounds (silent update to avoid double-history)
+        bgImage = data.bgImage;
+        if (bgImage) {
+            const img = new Image();
+            img.onload = () => { bgImageObj = img; draw(); };
+            img.src = bgImage;
+        } else { bgImageObj = null; }
+        
+        outerBgColor = data.outerBgColor;
+        outerColorInput.value = outerBgColor;
+        const viewport = document.getElementById("editor-viewport");
+        if (viewport) viewport.style.backgroundColor = outerBgColor;
+        
+        outerBgImage = data.outerBgImage;
+        if (outerBgImage) {
+            const img = new Image();
+            img.onload = () => { outerBgImageObj = img; draw(); };
+            img.src = outerBgImage;
+        } else { outerBgImageObj = null; }
+        
+        borderBgImage = data.borderBgImage;
+        setGlobalBorderImage(borderBgImage); // This handles the preview and appliance
+        
+        draw();
+    }
+};
+
 // --- Outer Background (outside arena) ---
 let outerBgColor = "#000000";
 let outerBgImage = null;
@@ -176,6 +280,7 @@ function setGlobalBorderImage(dataUrl) {
             pCtx.drawImage(img, 0, 0, borderPreviewCanvas.width, borderPreviewCanvas.height);
             borderPreviewCanvas.style.display = "block";
             btnRemoveBorderBg.style.display = "block";
+            History.push();
             draw();
         };
         img.src = dataUrl;
@@ -183,6 +288,7 @@ function setGlobalBorderImage(dataUrl) {
         borderPreviewCanvas.style.display = "none";
         btnRemoveBorderBg.style.display = "none";
         borderPreviewCanvas.getContext("2d").clearRect(0, 0, borderPreviewCanvas.width, borderPreviewCanvas.height);
+        History.push();
         draw();
     }
 }
@@ -219,6 +325,7 @@ function setOuterBgImage(dataUrl) {
             pCtx.drawImage(img, 0, 0, outerPreviewCanvas.width, outerPreviewCanvas.height);
             outerPreviewCanvas.style.display = "block";
             btnRemoveOuterBg.style.display = "block";
+            History.push();
             draw();
         };
         img.src = dataUrl;
@@ -235,6 +342,7 @@ outerColorInput.addEventListener("input", (e) => {
     // Apply color to viewport background so it shows around the canvas edges
     const viewport = document.getElementById("editor-viewport");
     if (viewport) viewport.style.backgroundColor = outerBgColor;
+    History.push();
     draw();
 });
 
@@ -268,6 +376,7 @@ function setBgImage(dataUrl) {
             pCtx.drawImage(img, 0, 0, bgPreviewCanvas.width, bgPreviewCanvas.height);
             bgPreviewCanvas.style.display = "block";
             btnRemoveBg.style.display = "block";
+            History.push();
             draw();
         };
     } else {
@@ -337,11 +446,13 @@ function resizeMap(w, h) {
             borders[3].h = mapHeight;
         }
     }
+    // We don't push here because common resize calls this multiple times
+    // We should probably push on 'change' instead of 'input' if we want to avoid spam
     draw();
 }
 
-mapWidthInput.addEventListener("change", (e) => resizeMap(e.target.value, mapHeight));
-mapHeightInput.addEventListener("change", (e) => resizeMap(mapWidth, e.target.value));
+mapWidthInput.addEventListener("change", (e) => { resizeMap(e.target.value, mapHeight); History.push(); });
+mapHeightInput.addEventListener("change", (e) => { resizeMap(mapWidth, e.target.value); History.push(); });
 
 function updateTowerInfo() {
     if (towers.length === 0) towerSequenceInfo.innerText = "Next: TOWER 1";
@@ -414,6 +525,7 @@ wallAngleInput.addEventListener("input", (e) => {
         // placeholder for next drawn wall
     } else if (currentTool === "select" && selectedItem && !selectedItem.label) {
         selectedItem.angle = val;
+        History.push();
         draw();
     }
 });
@@ -460,6 +572,8 @@ wallTextureInput.addEventListener("change", (e) => {
         selectedItem._textureImg = null; // force reload
         selectedItem._texturePat = null; // force pattern recreation
         updateWallTextureUI();
+        History.push("wall_texture_change");
+        draw();
     };
     reader.readAsDataURL(file);
 });
@@ -470,6 +584,7 @@ btnRemoveWallTexture.addEventListener("click", () => {
         selectedItem._textureImg = null;
         selectedItem._texturePat = null;
         updateWallTextureUI();
+        History.push("remove_wall_texture");
         draw();
     }
 });
@@ -516,6 +631,8 @@ towerTextureInput.addEventListener("change", (e) => {
         selectedItem.texture = ev.target.result;
         selectedItem._textureImg = null; // force reload
         updateTowerTextureUI();
+        History.push();
+        draw();
     };
     reader.readAsDataURL(file);
 });
@@ -525,6 +642,7 @@ btnRemoveTowerTexture.addEventListener("click", () => {
         selectedItem.texture = null;
         selectedItem._textureImg = null;
         updateTowerTextureUI();
+        History.push("remove_tower_texture");
         draw();
     }
 });
@@ -570,28 +688,34 @@ function renderShapeTexturePreview(img) {
 shapeCollision.addEventListener("change", (e) => {
     if (selectedItem && selectedItem.type === "shape") {
         selectedItem.isCollision = e.target.checked;
+        History.push();
     }
 });
 
-shapeColor.addEventListener("input", (e) => {
+shapeColor.addEventListener("change", (e) => {
     if (selectedItem && selectedItem.type === "shape") {
         selectedItem.color = e.target.value;
+        History.push("shape_color_change");
         draw();
     }
 });
 
-shapeWidthInput.addEventListener("input", (e) => {
+shapeWidthInput.addEventListener("change", (e) => {
     const val = parseInt(e.target.value) || 20;
     if (selectedItem && selectedItem.type === "shape") {
         selectedItem.w = val;
+        selectedItem._texturePat = null; // Clear pattern to recreate with new scale
+        History.push("shape_width_change");
         draw();
     }
 });
 
-shapeHeightInput.addEventListener("input", (e) => {
+shapeHeightInput.addEventListener("change", (e) => {
     const val = parseInt(e.target.value) || 20;
     if (selectedItem && selectedItem.type === "shape") {
         selectedItem.h = val;
+        selectedItem._texturePat = null; // Clear pattern
+        History.push("shape_height_change");
         draw();
     }
 });
@@ -604,6 +728,8 @@ shapeTextureInput.addEventListener("change", (e) => {
         selectedItem.texture = ev.target.result;
         selectedItem._textureImg = null; 
         updateShapeTextureUI();
+        History.push();
+        draw();
     };
     reader.readAsDataURL(file);
 });
@@ -613,6 +739,7 @@ btnRemoveShapeTexture.addEventListener("click", () => {
         selectedItem.texture = null;
         selectedItem._textureImg = null;
         updateShapeTextureUI();
+        History.push();
         draw();
     }
 });
@@ -761,6 +888,7 @@ document.getElementById("tower-hp").addEventListener("input", (e) => {
     if (currentTool === "select" && selectedItem && selectedItem.label) {
         selectedItem.maxHp = val;
         selectedItem.hp = val;
+        History.push("tower_hp_change");
         draw();
     }
 });
@@ -769,6 +897,7 @@ document.getElementById("tower-size").addEventListener("input", (e) => {
     const val = parseInt(e.target.value) || 80;
     if (currentTool === "select" && selectedItem && selectedItem.label) {
         selectedItem.size = val;
+        History.push("tower_size_change");
         draw();
     }
 });
@@ -825,6 +954,7 @@ async function loadMap(filename) {
         
         loadMapList(); // Refresh active state
         showCanvasState(); // Hide welcome, show canvas
+        History.push(); // First state after load
         draw();
     } catch (e) {
         await EditorDialog.alert("Error loading map", "GAGAL");
@@ -874,6 +1004,7 @@ async function createNewMap() {
     setGlobalBorderImage(null);
     
     showCanvasState();
+    History.push();
     draw();
 }
 
@@ -893,6 +1024,7 @@ btnClear.addEventListener("click", async () => {
         towers = [];
         waypoints = [];
         playerSpawns = [];
+        History.push();
         draw();
     }
 });
@@ -906,6 +1038,7 @@ btnDuplicate.addEventListener("click", () => {
     
     obstacles.push(newItem);
     selectedItem = newItem;
+    History.push();
     draw();
 });
 
@@ -1037,17 +1170,20 @@ canvas.addEventListener("mousedown", async (e) => {
 
         towers.push({ x: pos.x, y: pos.y, maxHp: hp, hp: hp, size: size, label: label });
         updateTowerInfo();
+        History.push();
         draw();
     } else if (currentTool === "waypoint") {
         const wp = { x: pos.x, y: pos.y, type: "waypoint" };
         waypoints.push(wp);
         selectedItem = wp;
         updateWaypointInfo();
+        History.push();
         draw();
     } else if (currentTool === "spawn") {
         const ps = { x: pos.x, y: pos.y, type: "spawn" };
         playerSpawns.push(ps);
         selectedItem = ps;
+        History.push();
         draw();
     } else if (currentTool === "select") {
         ctxMenu.style.display = "none";
@@ -1091,6 +1227,10 @@ canvas.addEventListener("mousemove", (e) => {
 });
 
 canvas.addEventListener("mouseup", (e) => {
+    if (draggingItem && currentTool === "select") {
+        History.push("move_item");
+    }
+    
     isDrawing = false;
     draggingItem = null;
     
@@ -1103,12 +1243,14 @@ canvas.addEventListener("mouseup", (e) => {
         let ow = Math.abs(w);
         let oh = Math.abs(h);
         
-        if (ow === 0 || oh === 0) return;
+        // Default to a single grid block if single-clicked
+        if (ow === 0) ow = SNAP_GRID;
+        if (oh === 0) oh = SNAP_GRID;
 
         if (currentTool === "wall") {
             const angleInput = document.getElementById("wall-angle");
             const angle = angleInput ? (parseFloat(angleInput.value) || 0) : 0;
-            obstacles.push({ x: ox, y: oy, w: ow, h: oh, angle: angle, color: "#444" });
+            obstacles.push({ type: "wall", x: ox, y: oy, w: ow, h: oh, angle: angle, color: "#444", isCollision: true });
         } else {
             // Shape
             obstacles.push({ 
@@ -1118,6 +1260,7 @@ canvas.addEventListener("mouseup", (e) => {
                 isCollision: shapeCollision.checked 
             });
         }
+        History.push("place_wall_shape");
         draw();
     }
 });
@@ -1131,6 +1274,7 @@ function eraseAt(x, y) {
         if (dist < 15) {
             playerSpawns.splice(i, 1);
             if (selectedItem === ps) selectedItem = null;
+            History.push();
             draw();
             return;
         }
@@ -1142,6 +1286,7 @@ function eraseAt(x, y) {
         if (dist < 15) {
             waypoints.splice(i, 1);
             if (selectedItem === wp) selectedItem = null;
+            History.push();
             draw();
             return;
         }
@@ -1152,6 +1297,7 @@ function eraseAt(x, y) {
         if (x >= t.x && x <= t.x + t.size && y >= t.y && y <= t.y + t.size) {
             towers.splice(i, 1);
             if (selectedItem === t) selectedItem = null;
+            History.push();
             draw();
             return;
         }
@@ -1174,6 +1320,7 @@ function eraseAt(x, y) {
         if (localX >= -o.w/2 && localX <= o.w/2 && localY >= -o.h/2 && localY <= o.h/2) {
             obstacles.splice(i, 1);
             if (selectedItem === o) selectedItem = null;
+            History.push();
             draw();
             return;
         }
@@ -1189,7 +1336,21 @@ document.addEventListener("keydown", (e) => {
             if (e.key === "ArrowDown") selectedItem.y += 10;
             if (e.key === "ArrowLeft") selectedItem.x -= 10;
             if (e.key === "ArrowRight") selectedItem.x += 10;
+            History.push();
             draw();
+        }
+    }
+
+    // ─── Undo/Redo Shortcuts ───
+    // ─── Undo/Redo Shortcuts ───
+    if (e.ctrlKey) {
+        if (e.key === "z" || e.key === "Z") {
+            e.preventDefault();
+            if (e.shiftKey) History.redo();
+            else History.undo();
+        } else if (e.key === "y" || e.key === "Y") {
+            e.preventDefault();
+            History.redo();
         }
     }
 
@@ -1311,22 +1472,25 @@ function draw() {
                     // Stretched texture for shapes
                     ctx.drawImage(obs._textureImg, -obs.w/2, -obs.h/2, obs.w, obs.h);
                 } else {
-                    // Tiled texture for walls
-                    if (!obs._texturePat) {
-                        const offCanvas = document.createElement("canvas");
-                        offCanvas.width = 20; 
-                        offCanvas.height = 20;
-                        const oCtx = offCanvas.getContext("2d");
-                        oCtx.drawImage(obs._textureImg, 0, 0, 20, 20);
-                        obs._texturePat = ctx.createPattern(offCanvas, 'repeat');
+                    // Robust Tiled texture for walls using drawImage loop
+                    const tileSize = 80;
+                    const img = obs._textureImg;
+                    
+                    // We draw in tiles from top-left (-w/2, -h/2) to bottom-right (w/2, h/2)
+                    for (let tx = -obs.w/2; tx < obs.w/2; tx += tileSize) {
+                        for (let ty = -obs.h/2; ty < obs.h/2; ty += tileSize) {
+                            let drawW = Math.min(tileSize, obs.w/2 - tx);
+                            let drawH = Math.min(tileSize, obs.h/2 - ty);
+                            
+                            // Source cropping to maintain tiling aspect
+                            let srcW = (drawW / tileSize) * img.width;
+                            let srcH = (drawH / tileSize) * img.height;
+                            
+                            ctx.drawImage(img, 0, 0, srcW, srcH, tx, ty, drawW, drawH);
+                        }
                     }
-                    ctx.fillStyle = obs._texturePat;
-                    ctx.save();
-                    ctx.translate(-obs.w/2, -obs.h/2);
-                    ctx.fillRect(0, 0, obs.w, obs.h);
-                    ctx.restore();
                 }
-            } else if (!obs._textureImg) {
+            } else if (!obs._textureImg || obs._textureImg === "loading") {
                 const img = new Image();
                 img.onload = () => { obs._textureImg = img; draw(); };
                 img.src = obs.texture;
@@ -1505,6 +1669,7 @@ function removeSelectedItem() {
     if (idx !== -1) playerSpawns.splice(idx, 1);
 
     selectedItem = null;
+    History.push();
     draw();
 }
 

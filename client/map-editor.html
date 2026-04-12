@@ -459,6 +459,7 @@
       top: 12px;
       right: 12px;
       width: 210px;
+      max-height: calc(100vh - 120px);
       background: rgba(18,18,20,0.97);
       backdrop-filter: blur(12px);
       border: 1px solid var(--border);
@@ -467,6 +468,10 @@
       padding: 12px;
       display: none;
       box-shadow: 0 8px 32px rgba(0,0,0,0.7);
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+      z-index: 150;
     }
 
     .pane-title {
@@ -960,7 +965,25 @@
       const toggle= document.getElementById('toggle-' + name);
       const collapsed = body.classList.toggle('collapsed');
       toggle.classList.toggle('collapsed', collapsed);
+      
+      // Save state to localStorage
+      localStorage.setItem('editor_sidebar_' + name, collapsed ? 'collapsed' : 'expanded');
     }
+
+    /* ─── Restore sidebar state ─── */
+    function initSidebar() {
+      ['maps', 'world'].forEach(name => {
+        const state = localStorage.getItem('editor_sidebar_' + name);
+        if (state === 'collapsed') {
+          const body  = document.getElementById(name === 'maps' ? 'map-files-body' : 'world-settings-body');
+          const arrow = document.getElementById('arrow-' + name);
+          const toggle= document.getElementById('toggle-' + name);
+          if (body) body.classList.add('collapsed');
+          if (toggle) toggle.classList.add('collapsed');
+        }
+      });
+    }
+    initSidebar();
 
     /* ─── Sync titlebar filename ─── */
     function updateTitlebarFilename(filename) {
